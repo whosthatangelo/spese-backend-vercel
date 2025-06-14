@@ -1,0 +1,118 @@
+[
+  {
+    "id": 1749937414744,
+    "data": "2025-06-14",
+    "prodotto": "mele",
+    "luogo": "milano",
+    "importo": 10,
+    "quantita": 10,
+    "unita_misura": "kg",
+    "audio_url": ""
+  },
+  {
+    "id": 1749937916697,
+    "data": "2025-06-14",
+    "prodotto": "mele",
+    "luogo": "milano",
+    "importo": 10,
+    "quantita": 10,
+    "unita_misura": "kg",
+    "audio_url": ""
+  },
+  {
+    "id": 1749937916821
+  },
+  {
+    "id": 1749937929131,
+    "data": "2025-06-14",
+    "prodotto": "pere",
+    "luogo": "milano",
+    "importo": 10,
+    "quantita": 10,
+    "unita_misura": "km",
+    "audio_url": ""
+  },
+  {
+    "id": 1749937929255
+  },
+  {
+    "id": 1749938760367,
+    "data": "12 giugno",
+    "prodotto": "pizza",
+    "luogo": "Milano",
+    "importo": 11,
+    "quantita": null,
+    "unita_misura": null,
+    "audio_url": ""
+  },
+  {
+    "id": 1749938760508,
+    "data": "12 giugno",
+    "prodotto": "pizza",
+    "luogo": "Milano",
+    "importo": 11,
+    "quantita": null,
+    "unita_misura": null,
+    "audio_url": ""
+  },
+  {
+    "id": 1749938819879,
+    "data": "12 giugno",
+    "prodotto": "pizza",
+    "luogo": "Milano",
+    "importo": 11,
+    "quantita": null,
+    "unita_misura": null,
+    "audio_url": ""
+  },
+  {
+    "id": 1749938820014,
+    "data": "12 giugno",
+    "prodotto": "pizza",
+    "luogo": "Milano",
+    "importo": 11,
+    "quantita": null,
+    "unita_misura": null,
+    "audio_url": ""
+  },
+  {
+    "id": 1749938825322,
+    "data": "12 giugno",
+    "prodotto": "pizza",
+    "luogo": "Milano",
+    "importo": 11,
+    "quantita": null,
+    "unita_misura": null,
+    "audio_url": ""
+  },
+  {
+    "id": 1749938825464,
+    "data": "12 giugno",
+    "prodotto": "pizza",
+    "luogo": "Milano",
+    "importo": 11,
+    "quantita": null,
+    "unita_misura": null,
+    "audio_url": ""
+  },
+  {
+    "id": 1749940010740,
+    "data": "12 giugno",
+    "prodotto": "pizza",
+    "luogo": "Milano",
+    "importo": 11,
+    "quantita": null,
+    "unita_misura": null,
+    "audio_url": ""
+  },
+  {
+    "id": 1749940010868,
+    "data": "12 giugno",
+    "prodotto": "pizza",
+    "luogo": "Milano",
+    "importo": 11,
+    "quantita": null,
+    "unita_misura": null,
+    "audio_url": ""
+  }
+]
