@@ -6,24 +6,38 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { getAllSpese, addSpesa, updateSpesa, deleteSpesa } from '../db.js';
+import { OpenAI } from 'openai';
+import dotenv from 'dotenv';
+dotenv.config();
+
+// ✅ Istanzia OpenAI
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+  organization: process.env.OPENAI_ORG_ID,
+  project: process.env.OPENAI_PROJECT_ID,
+});
 
 const app = express();
-
-// ✅ Config compatibile con Vercel (scrittura solo su /tmp)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const upload = multer({ dest: '/tmp' }); // ✅ SOLO QUESTA dichiarazione!
+const upload = multer({ dest: '/tmp' }); // ✅ Percorso compatibile con Vercel
 
 app.use(cors());
 app.use(express.json());
 
-/* === Simulazione trascrizione vocale === */
+/* === Trascrizione vocale === */
 async function transcribeAudio(filePath) {
-  console.log("🧠 Simulazione trascrizione audio da:", filePath);
-  return "12 giugno, pizza, Milano, 11 euro";
+  const file = fs.createReadStream(filePath);
+  const response = await openai.audio.transcriptions.create({
+    file,
+    model: "whisper-1",
+    language: "it",
+    response_format: "text"
+  });
+  return response; // testo trascritto
 }
 
-/* === Parser semplice del testo === */
+/* === Parser === */
 function parseExpenseFromText(text) {
   const [rawData, prodotto, luogo, importoRaw] = text.split(',');
   const today = new Date().toISOString().split("T")[0];
@@ -37,11 +51,11 @@ function parseExpenseFromText(text) {
     importo,
     quantita: null,
     unita_misura: null,
-    audio_url: '' // opzionale
+    audio_url: ''
   };
 }
 
-/* === Endpoint Upload Audio === */
+/* === Upload Audio === */
 app.post('/upload-audio', upload.single('audio'), async (req, res) => {
   try {
     const filePath = req.file.path;
@@ -56,7 +70,7 @@ app.post('/upload-audio', upload.single('audio'), async (req, res) => {
   }
 });
 
-/* === REST API classiche === */
+/* === REST API === */
 app.get('/expenses', async (req, res) => {
   const spese = await getAllSpese();
   res.json(spese);
@@ -98,5 +112,5 @@ app.get('/stats', async (req, res) => {
   res.json({ totale: totale.toFixed(2), numero, media_per_giorno, top_prodotto });
 });
 
-// ✅ Nessun app.listen() qui: è serverless!
+// ✅ No app.listen()!
 export default app;
