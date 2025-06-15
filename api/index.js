@@ -9,10 +9,10 @@ import { getAllSpese, addSpesa, updateSpesa, deleteSpesa } from '../db.js';
 
 const app = express();
 
-// Config per path serverless
+// ✅ Config compatibile con Vercel (scrittura solo su /tmp)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const upload = multer({ dest: path.join(__dirname, '../uploads') });
+const upload = multer({ dest: '/tmp' }); // ✅ SOLO QUESTA dichiarazione!
 
 app.use(cors());
 app.use(express.json());
@@ -37,9 +37,24 @@ function parseExpenseFromText(text) {
     importo,
     quantita: null,
     unita_misura: null,
-    audio_url: '' // Potresti salvarlo se vuoi
+    audio_url: '' // opzionale
   };
 }
+
+/* === Endpoint Upload Audio === */
+app.post('/upload-audio', upload.single('audio'), async (req, res) => {
+  try {
+    const filePath = req.file.path;
+    const testo = await transcribeAudio(filePath);
+    const spesa = parseExpenseFromText(testo);
+
+    await addSpesa(spesa);
+    res.json(spesa);
+  } catch (error) {
+    console.error("❌ Errore /upload-audio:", error);
+    res.status(500).json({ error: 'Errore nel salvataggio della spesa' });
+  }
+});
 
 /* === REST API classiche === */
 app.get('/expenses', async (req, res) => {
@@ -83,36 +98,5 @@ app.get('/stats', async (req, res) => {
   res.json({ totale: totale.toFixed(2), numero, media_per_giorno, top_prodotto });
 });
 
-const upload = multer({ dest: '/tmp' }); // Percorso compatibile con Vercel
-
-app.post('/upload-audio', upload.single('audio'), async (req, res) => {
-  try {
-    // Simulazione trascrizione
-    const testo = "12 giugno, pizza, Milano, 11 euro";
-    const [rawData, prodotto, luogo, importoRaw] = testo.split(',');
-
-    const today = new Date().toISOString().split("T")[0];
-    const data = rawData?.trim() || today;
-    const importo = parseFloat(importoRaw?.replace(/[^\d.]/g, '')) || 0;
-
-    const spesa = {
-      data,
-      prodotto: prodotto?.trim() || 'Prodotto',
-      luogo: luogo?.trim() || 'Luogo',
-      importo,
-      quantita: null,
-      unita_misura: null,
-      audio_url: ''
-    };
-
-    await addSpesa(spesa);
-    res.json(spesa);
-  } catch (error) {
-    console.error("❌ Errore /upload-audio:", error);
-    res.status(500).json({ error: 'Errore nel salvataggio della spesa' });
-  }
-});
-
-
-// ✅ Nessun app.listen() qui! Questo è serverless.
+// ✅ Nessun app.listen() qui: è serverless!
 export default app;
