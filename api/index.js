@@ -83,8 +83,6 @@ app.get('/stats', async (req, res) => {
   res.json({ totale: totale.toFixed(2), numero, media_per_giorno, top_prodotto });
 });
 
-import multer from 'multer';
-
 const upload = multer({ dest: '/tmp' }); // Percorso compatibile con Vercel
 
 app.post('/upload-audio', upload.single('audio'), async (req, res) => {
