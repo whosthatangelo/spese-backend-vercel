@@ -41,21 +41,6 @@ function parseExpenseFromText(text) {
   };
 }
 
-/* === Endpoint Upload Audio === */
-app.post('/upload-audio', upload.single('audio'), async (req, res) => {
-  try {
-    const filePath = path.join(__dirname, '../', req.file.path);
-    const testo = await transcribeAudio(filePath);
-    const spesa = parseExpenseFromText(testo);
-
-    await addSpesa(spesa);
-    res.json(spesa);
-  } catch (err) {
-    console.error("❌ Errore /upload-audio:", err);
-    res.status(500).json({ error: "Errore durante l’elaborazione audio" });
-  }
-});
-
 /* === REST API classiche === */
 app.get('/expenses', async (req, res) => {
   const spese = await getAllSpese();
