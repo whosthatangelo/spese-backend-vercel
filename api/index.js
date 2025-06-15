@@ -61,6 +61,11 @@ function parseExpenseFromText(text) {
 app.post('/upload-audio', upload.single('audio'), async (req, res) => {
   try {
     const filePath = req.file.path;
+
+    console.log('📁 File salvato in:', filePath);
+    console.log('📄 Tipo MIME ricevuto:', req.file.mimetype);
+    console.log('📦 Dimensione:', req.file.size);
+
     const testo = await transcribeAudio(filePath);
     const spesa = parseExpenseFromText(testo);
 
@@ -71,6 +76,7 @@ app.post('/upload-audio', upload.single('audio'), async (req, res) => {
     res.status(500).json({ error: 'Errore nel salvataggio della spesa' });
   }
 });
+
 
 /* === API Spese === */
 app.get('/expenses', async (req, res) => {
