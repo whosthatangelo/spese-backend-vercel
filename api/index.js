@@ -28,16 +28,22 @@ app.use(cors());
 app.use(express.json());
 
 /* === Trascrizione vocale === */
-async function transcribeAudio(filePath) {
+async function transcribeAudio(filePath, mimeType) {
+  console.log("📄 Tipo MIME ricevuto:", mimeType);
+  const stats = fs.statSync(filePath);
+  console.log("📦 Dimensione file:", stats.size);
+
   const file = fs.createReadStream(filePath);
+
   const response = await openai.audio.transcriptions.create({
     file,
-    model: "whisper-1",
-    language: "it",
-    response_format: "json" // ✅ formato chiaro
+    model: 'whisper-1',
+    response_format: 'json',
   });
+
   return response.text;
 }
+
 
 /* === Parsing testo in spesa === */
 function parseExpenseFromText(text) {
