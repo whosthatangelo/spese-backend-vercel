@@ -34,21 +34,14 @@ async function transcribeAudio(file) {
     throw new Error("File audio non valido o vuoto.");
   }
 
-  const transcription = await openai.audio.transcriptions.create({
-    file: {
-      value: fs.createReadStream(file.path),
-      options: {
-        filename: file.originalname || 'audio.webm',
-        contentType: file.mimetype
-      }
-    },
+  return await openai.audio.transcriptions.create({
+    file: fs.createReadStream(file.path),
     model: "whisper-1",
     response_format: "json",
     language: "it"
   });
-
-  return transcription;
 }
+
 
 
 
