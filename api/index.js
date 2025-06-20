@@ -40,14 +40,12 @@ async function transcribeAudio(file) {
     file: fileStream,
     model: "whisper-1",
     response_format: "json",
-    language: "it",
-    // 👇 opzionale: migliora il supporto in casi borderline
-    // mimeType: file.mimetype,
-    // filename: file.originalname || 'audio.webm'
+    language: "it"
   });
 
-  return transcription.text;
+  return transcription;
 }
+
 
 
 
