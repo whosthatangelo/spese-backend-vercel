@@ -35,10 +35,15 @@ async function transcribeAudio(file) {
   }
 
   const fileStream = fs.createReadStream(file.path);
-  fileStream.path = file.originalname || 'audio.webm'; // 👈 fondamentale!
 
   const transcription = await openai.audio.transcriptions.create({
-    file: fileStream,
+    file: {
+      value: fileStream,
+      options: {
+        filename: file.originalname || 'audio.webm',
+        contentType: file.mimetype
+      }
+    },
     model: "whisper-1",
     response_format: "json",
     language: "it"
@@ -46,7 +51,6 @@ async function transcribeAudio(file) {
 
   return transcription;
 }
-
 
 
 /* === Parsing testo in spesa === */
