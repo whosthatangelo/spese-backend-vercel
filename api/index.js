@@ -3,14 +3,14 @@ import express from 'express';
 import cors from 'cors';
 import multer from 'multer';
 import path from 'path';
-import fs from 'fs'; // ✅ solo UNA volta
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { getAllSpese, addSpesa, updateSpesa, deleteSpesa } from '../db.js';
 import { OpenAI } from 'openai';
 import dotenv from 'dotenv';
 dotenv.config();
 
-// ✅ Istanziazione OpenAI
+// ✅ OpenAI
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
   organization: process.env.OPENAI_ORG_ID,
@@ -18,11 +18,9 @@ const openai = new OpenAI({
 });
 
 const app = express();
-
-// ✅ Config compatibile con Vercel
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const upload = multer({ dest: '/tmp' }); // ✅ Percorso di scrittura valido
+const upload = multer({ dest: '/tmp' });
 
 app.use(cors());
 app.use(express.json());
@@ -48,7 +46,6 @@ async function transcribeAudio(file) {
   return transcription;
 }
 
-
 /* === Parsing testo in spesa === */
 function parseExpenseFromText(text) {
   const [rawData, prodotto, luogo, importoRaw] = text.split(',');
@@ -70,11 +67,9 @@ function parseExpenseFromText(text) {
 /* === Upload Audio === */
 app.post('/upload-audio', upload.single('audio'), async (req, res) => {
   try {
-    const filePath = req.file.path;
-
-    console.log('📁 File salvato in:', filePath);
-    console.log('📄 Tipo MIME ricevuto:', req.file.mimetype);
-    console.log('📦 Dimensione:', req.file.size);
+    console.log('📁 File salvato in:', req.file?.path);
+    console.log('📄 Tipo MIME ricevuto:', req.file?.mimetype);
+    console.log('📦 Dimensione:', req.file?.size);
     console.log("🛠️ File passato a transcribeAudio:", req.file?.originalname, req.file?.mimetype, req.file?.size);
 
     if (!req.file || !req.file.mimetype || req.file.size === 0) {
@@ -82,11 +77,9 @@ app.post('/upload-audio', upload.single('audio'), async (req, res) => {
       return res.status(400).json({ error: 'File audio mancante o non valido.' });
     }
 
-    console.log(`🛠️ File passato a transcribeAudio: ${req.file.originalname} ${req.file.mimetype} ${req.file.size}`);
-    const filePath = req.file.path;
-    const testo = await transcribeAudio(filePath);
+    const transcription = await transcribeAudio(req.file);
 
-    const spesa = parseExpenseFromText(testo);
+    const spesa = parseExpenseFromText(transcription.text);
 
     await addSpesa(spesa);
     res.json(spesa);
@@ -95,7 +88,6 @@ app.post('/upload-audio', upload.single('audio'), async (req, res) => {
     res.status(500).json({ error: 'Errore nel salvataggio della spesa' });
   }
 });
-
 
 /* === API Spese === */
 app.get('/expenses', async (req, res) => {
