@@ -26,6 +26,9 @@ app.use(cors());
 app.use(express.json());
 
 /* === Trascrizione vocale === */
+import { spawn } from 'child_process';
+import ffmpegPath from 'ffmpeg-static';
+
 async function transcribeAudio(file) {
   console.log("📄 Tipo MIME ricevuto:", file?.mimetype);
   console.log("📦 Dimensione file:", file?.size);
@@ -34,15 +37,35 @@ async function transcribeAudio(file) {
     throw new Error("File audio non valido o vuoto.");
   }
 
+  const outputPath = `/tmp/${path.parse(file.originalname).name}.mp3`;
+
+  await new Promise((resolve, reject) => {
+    const ffmpeg = spawn(ffmpegPath, [
+      '-i', file.path,
+      '-f', 'mp3',
+      '-acodec', 'libmp3lame',
+      '-ar', '44100',
+      '-y',
+      outputPath
+    ]);
+
+    ffmpeg.on('close', (code) => {
+      if (code === 0) {
+        console.log('✅ Conversione completata:', outputPath);
+        resolve();
+      } else {
+        reject(new Error(`❌ FFmpeg process exited with code ${code}`));
+      }
+    });
+  });
+
   return await openai.audio.transcriptions.create({
-    file: fs.createReadStream(file.path),
+    file: fs.createReadStream(outputPath),
     model: "whisper-1",
     response_format: "json",
     language: "it"
   });
 }
-
-
 
 
 /* === Parsing testo in spesa === */
