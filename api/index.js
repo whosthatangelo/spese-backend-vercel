@@ -77,7 +77,15 @@ app.post('/upload-audio', upload.single('audio'), async (req, res) => {
     console.log('📦 Dimensione:', req.file.size);
     console.log("🛠️ File passato a transcribeAudio:", req.file?.originalname, req.file?.mimetype, req.file?.size);
 
+    if (!req.file || !req.file.mimetype || req.file.size === 0) {
+      console.error("❌ File audio mancante o non valido:", req.file);
+      return res.status(400).json({ error: 'File audio mancante o non valido.' });
+    }
+
+    console.log(`🛠️ File passato a transcribeAudio: ${req.file.originalname} ${req.file.mimetype} ${req.file.size}`);
+    const filePath = req.file.path;
     const testo = await transcribeAudio(filePath);
+
     const spesa = parseExpenseFromText(testo);
 
     await addSpesa(spesa);
