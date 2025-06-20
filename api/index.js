@@ -40,13 +40,12 @@ async function transcribeAudio(file) {
     file: fileStream,
     model: "whisper-1",
     response_format: "json",
-    language: "it",
-    // 👇 Chiave corretta per il content-type (implicito per SDK)
-    mimeType: file.mimetype
+    language: "it"
   });
 
-  return transcription;
+  return transcription.text;
 }
+
 
 
 /* === Parsing testo in spesa === */
