@@ -40,11 +40,14 @@ async function transcribeAudio(file) {
     file: fileStream,
     model: "whisper-1",
     response_format: "json",
-    language: "it"
+    language: "it",
+    // 👇 Chiave corretta per il content-type (implicito per SDK)
+    mimeType: file.mimetype
   });
 
   return transcription;
 }
+
 
 /* === Parsing testo in spesa === */
 function parseExpenseFromText(text) {
