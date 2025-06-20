@@ -28,20 +28,24 @@ app.use(cors());
 app.use(express.json());
 
 /* === Trascrizione vocale === */
-async function transcribeAudio(filePath, mimeType) {
-  console.log("📄 Tipo MIME ricevuto:", mimeType);
-  const stats = fs.statSync(filePath);
-  console.log("📦 Dimensione file:", stats.size);
+async function transcribeAudio(file) {
+  console.log("📄 Tipo MIME ricevuto:", file?.mimetype);
+  console.log("📦 Dimensione file:", file?.size);
 
-  const file = fs.createReadStream(filePath);
+  if (!file || !file.path || !file.mimetype || file.size === 0) {
+    throw new Error("File audio non valido o vuoto.");
+  }
 
-  const response = await openai.audio.transcriptions.create({
-    file,
-    model: 'whisper-1',
-    response_format: 'json',
+  const fileStream = fs.createReadStream(file.path);
+
+  const transcription = await openai.audio.transcriptions.create({
+    file: fileStream,
+    model: "whisper-1",
+    response_format: "json",
+    language: "it"
   });
 
-  return response.text;
+  return transcription;
 }
 
 
@@ -71,6 +75,7 @@ app.post('/upload-audio', upload.single('audio'), async (req, res) => {
     console.log('📁 File salvato in:', filePath);
     console.log('📄 Tipo MIME ricevuto:', req.file.mimetype);
     console.log('📦 Dimensione:', req.file.size);
+    console.log("🛠️ File passato a transcribeAudio:", req.file?.originalname, req.file?.mimetype, req.file?.size);
 
     const testo = await transcribeAudio(filePath);
     const spesa = parseExpenseFromText(testo);
