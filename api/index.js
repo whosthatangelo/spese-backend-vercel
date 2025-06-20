@@ -26,9 +26,6 @@ app.use(cors());
 app.use(express.json());
 
 /* === Trascrizione vocale === */
-import ffmpegPath from 'ffmpeg-static';
-import { spawn } from 'child_process';
-
 async function transcribeAudio(file) {
   console.log("📄 Tipo MIME ricevuto:", file?.mimetype);
   console.log("📦 Dimensione file:", file?.size);
@@ -37,27 +34,7 @@ async function transcribeAudio(file) {
     throw new Error("File audio non valido o vuoto.");
   }
 
-  const mp3Path = `${file.path}.mp3`;
-
-  // Converti da .webm a .mp3 con ffmpeg
-  await new Promise((resolve, reject) => {
-    const ffmpeg = spawn(ffmpegPath, [
-      '-i', file.path,
-      '-f', 'mp3',
-      '-y', mp3Path
-    ]);
-
-    ffmpeg.stderr.on('data', data => {
-      console.log("🎬 ffmpeg:", data.toString());
-    });
-
-    ffmpeg.on('exit', code => {
-      if (code === 0) resolve();
-      else reject(new Error("Errore nella conversione con ffmpeg"));
-    });
-  });
-
-  const fileStream = fs.createReadStream(mp3Path);
+  const fileStream = fs.createReadStream(file.path);
 
   const transcription = await openai.audio.transcriptions.create({
     file: fileStream,
