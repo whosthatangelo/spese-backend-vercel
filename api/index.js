@@ -70,21 +70,29 @@ async function transcribeAudio(file) {
 
 /* === Parsing testo in spesa === */
 function parseExpenseFromText(text) {
-  const [rawData, prodotto, luogo, importoRaw] = text.split(',');
+  console.log("📜 Testo ricevuto per parsing:", text);
   const today = new Date().toISOString().split("T")[0];
-  const data = rawData?.trim() || today;
-  const importo = parseFloat(importoRaw?.replace(/[^\d.]/g, '')) || 0;
+
+  const lower = text.toLowerCase();
+  const regex = /(\d{1,2} [a-z]+)?\s*([a-zàèéìòù]+)?\s*([a-zàèéìòù]+)?\s*(\d+(?:[.,]\d+)?)/i;
+  const match = lower.match(regex);
+
+  const data = match?.[1]?.trim() || today;
+  const prodotto = match?.[2]?.trim() || 'Prodotto';
+  const luogo = match?.[3]?.trim() || 'Luogo';
+  const importo = parseFloat(match?.[4]?.replace(',', '.')) || 0;
 
   return {
     data,
-    prodotto: prodotto?.trim() || 'Prodotto',
-    luogo: luogo?.trim() || 'Luogo',
+    prodotto,
+    luogo,
     importo,
     quantita: null,
     unita_misura: null,
     audio_url: ''
   };
 }
+
 
 /* === Upload Audio === */
 app.post('/upload-audio', upload.single('audio'), async (req, res) => {
@@ -100,6 +108,7 @@ app.post('/upload-audio', upload.single('audio'), async (req, res) => {
     }
 
     const transcription = await transcribeAudio(req.file);
+    console.log("🗣️ Testo trascritto:", transcription.text); // 👈 AGGIUNGI QUESTO
 
     const spesa = parseExpenseFromText(transcription.text);
     console.log("🧾 Spesa generata:", spesa);

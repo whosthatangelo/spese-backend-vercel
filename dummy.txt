@@ -1,3 +1,4 @@
 // trigger deploy
 // forza redeploy
 // fix path for Railway
+// 🔁 Migliorato parsing spesa vocale
