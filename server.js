@@ -1,9 +1,19 @@
-// server.js
-import express from 'express';
 import app from './api/index.js';
+import fs from 'fs';
 
-const PORT = process.env.PORT || 8080;
+console.log('🔁 Server init...');
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Server avviato su http://0.0.0.0:${PORT}`);
-});
+const PORT = process.env.PORT || 3000;
+
+try {
+  // test dummy: file presente?
+  if (!fs.existsSync('./db.js')) {
+    console.error('❌ db.js non trovato!');
+  }
+
+  app.listen(PORT, () => {
+    console.log(`🚀 Server avviato su http://localhost:${PORT}`);
+  });
+} catch (err) {
+  console.error('❌ Errore nel lancio del server:', err);
+}
