@@ -77,7 +77,7 @@ export async function saveDocumento(doc) {
     data_creazione, utente_id
   ];
 
-  await pool.query(query, values);
+  await query(query, values);
 }
 
 // 🔍 Test connessione e tabella
