@@ -1,6 +1,6 @@
 // db.js
 import { readFile, writeFile } from 'fs/promises';
-import pool from './pg.js'; // connessione PostgreSQL
+import { query } from './pg.js'; // ✅ CORRETTA
 
 const FILE_PATH = '/tmp/spese.json';
 
