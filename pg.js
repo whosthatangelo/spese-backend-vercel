@@ -10,5 +10,6 @@ const pool = new Pool({
 });
 
 console.log("✅ Connessione a PostgreSQL inizializzata");
+console.log("🔗 POSTGRES_URL:", process.env.POSTGRES_URL); // ← Aggiunta utile per debug
 
 export const query = (text, params) => pool.query(text, params);
