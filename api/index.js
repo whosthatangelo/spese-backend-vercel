@@ -102,6 +102,7 @@ app.post('/upload-audio', upload.single('audio'), async (req, res) => {
     const transcription = await transcribeAudio(req.file);
 
     const spesa = parseExpenseFromText(transcription.text);
+    console.log("🧾 Spesa generata:", spesa);
 
     await addSpesa(spesa);
     res.json(spesa);
