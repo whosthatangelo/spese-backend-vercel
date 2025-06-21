@@ -1,16 +1,16 @@
-# Usa un'immagine base Node.js
+# Usa una immagine Node ufficiale
 FROM node:18
 
-# Crea la cartella app
+# Imposta la cartella di lavoro
 WORKDIR /app
 
-# Copia tutto il contenuto
+# Copia tutti i file nel container
 COPY . .
 
 # Installa le dipendenze
-RUN npm ci
+RUN npm install
 
-# Esponi la porta su cui ascolta Express
+# Espone la porta 8080
 EXPOSE 8080
 
 # Avvia l'app
