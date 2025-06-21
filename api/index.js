@@ -155,3 +155,7 @@ app.get('/stats', async (req, res) => {
 
 // ✅ Nessun app.listen()
 export default app;
+
+app.get('/', (req, res) => {
+  res.send('✅ Backend attivo!');
+});
