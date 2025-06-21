@@ -80,8 +80,6 @@ export async function saveDocumento(doc) {
   await pool.query(query, values);
 }
 
-import { query } from './pg.js';
-
 // 🔍 Test connessione e tabella
 async function testDB() {
   try {
