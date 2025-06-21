@@ -1,6 +1,6 @@
 import { readFile, writeFile } from 'fs/promises';
 
-const FILE_PATH = '/tmp/spese.json';
+const FILE_PATH = './spese.json';
 
 // 🔄 Legge le spese
 export async function getAllSpese() {
