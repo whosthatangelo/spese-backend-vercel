@@ -5,12 +5,11 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { getAllSpese, addSpesa, updateSpesa, deleteSpesa } from '../db.js';
+import { getAllSpese, addSpesa, updateSpesa, deleteSpesa, saveDocumento } from '../db.js';
 import { OpenAI } from 'openai';
 import dotenv from 'dotenv';
 dotenv.config();
 
-// ✅ OpenAI
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
   organization: process.env.OPENAI_ORG_ID,
@@ -67,7 +66,6 @@ async function transcribeAudio(file) {
   });
 }
 
-
 /* === Parsing testo in spesa === */
 function parseExpenseFromText(text) {
   console.log("📜 Testo ricevuto per parsing:", text);
@@ -83,16 +81,20 @@ function parseExpenseFromText(text) {
   const importo = parseFloat(match?.[4]?.replace(',', '.')) || 0;
 
   return {
-    data,
-    prodotto,
-    luogo,
+    numero_fattura: '',
+    data_fattura: data,
     importo,
-    quantita: null,
-    unita_misura: null,
-    audio_url: ''
+    valuta: 'EUR',
+    azienda: luogo,
+    tipo_pagamento: '',
+    banca: '',
+    tipo_documento: '',
+    stato: '',
+    metodo_pagamento: '',
+    data_creazione: today,
+    utente_id: 'user_1' // 🧪 placeholder per ora
   };
 }
-
 
 /* === Upload Audio === */
 app.post('/upload-audio', upload.single('audio'), async (req, res) => {
@@ -108,12 +110,13 @@ app.post('/upload-audio', upload.single('audio'), async (req, res) => {
     }
 
     const transcription = await transcribeAudio(req.file);
-    console.log("🗣️ Testo trascritto:", transcription.text); // 👈 AGGIUNGI QUESTO
+    console.log("🗣️ Testo trascritto:", transcription.text);
 
     const spesa = parseExpenseFromText(transcription.text);
     console.log("🧾 Spesa generata:", spesa);
+    console.log("📤 Documento pronto per il salvataggio su PostgreSQL:", spesa);
 
-    await addSpesa(spesa);
+    await saveDocumento(spesa);
     res.json(spesa);
   } catch (error) {
     console.error("❌ Errore /upload-audio:", error);
@@ -121,7 +124,7 @@ app.post('/upload-audio', upload.single('audio'), async (req, res) => {
   }
 });
 
-/* === API Spese === */
+/* === API Spese (legacy, file JSON) === */
 app.get('/expenses', async (req, res) => {
   const spese = await getAllSpese();
   res.json(spese);
