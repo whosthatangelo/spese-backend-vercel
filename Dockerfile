@@ -1,5 +1,5 @@
 # Usa una immagine Node ufficiale
-FROM node:18
+FROM FROM node:20
 
 # Imposta la cartella di lavoro
 WORKDIR /app
