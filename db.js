@@ -60,7 +60,7 @@ export async function saveDocumento(doc) {
   } = doc;
 
   const query = `
-    INSERT INTO documenti (
+    INSERT INTO documents (
       numero_fattura, data_fattura, importo, valuta, azienda,
       tipo_pagamento, banca, tipo_documento, stato, metodo_pagamento,
       data_creazione, utente_id
@@ -83,7 +83,7 @@ export async function saveDocumento(doc) {
 // 🔍 Test connessione e tabella
 async function testDB() {
   try {
-    const res = await query('SELECT * FROM documenti LIMIT 1');
+    const res = await query('SELECT * FROM documents LIMIT 1');
     console.log('✅ Connessione al DB riuscita. Primo record:', res.rows[0]);
   } catch (err) {
     console.error('❌ Errore di connessione o query:', err);
