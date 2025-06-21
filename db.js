@@ -1,6 +1,12 @@
+// db.js
 import { readFile, writeFile } from 'fs/promises';
+import pool from './pg.js'; // connessione PostgreSQL
 
 const FILE_PATH = '/tmp/spese.json';
+
+//
+// === JSON File-based operations (legacy) ===
+//
 
 // 🔄 Legge le spese
 export async function getAllSpese() {
@@ -32,3 +38,58 @@ export async function deleteSpesa(id) {
   spese = spese.filter(s => s.id != id);
   await writeFile(FILE_PATH, JSON.stringify(spese, null, 2));
 }
+
+//
+// === PostgreSQL: Nuovo salvataggio su DB ===
+//
+
+export async function saveDocumento(doc) {
+  const {
+    numero_fattura,
+    data_fattura,
+    importo,
+    valuta,
+    azienda,
+    tipo_pagamento,
+    banca,
+    tipo_documento,
+    stato,
+    metodo_pagamento,
+    data_creazione,
+    utente_id
+  } = doc;
+
+  const query = `
+    INSERT INTO documenti (
+      numero_fattura, data_fattura, importo, valuta, azienda,
+      tipo_pagamento, banca, tipo_documento, stato, metodo_pagamento,
+      data_creazione, utente_id
+    ) VALUES (
+      $1, $2, $3, $4, $5,
+      $6, $7, $8, $9, $10,
+      $11, $12
+    )
+  `;
+
+  const values = [
+    numero_fattura, data_fattura, importo, valuta, azienda,
+    tipo_pagamento, banca, tipo_documento, stato, metodo_pagamento,
+    data_creazione, utente_id
+  ];
+
+  await pool.query(query, values);
+}
+
+import { query } from './pg.js';
+
+// 🔍 Test connessione e tabella
+async function testDB() {
+  try {
+    const res = await query('SELECT * FROM documenti LIMIT 1');
+    console.log('✅ Connessione al DB riuscita. Primo record:', res.rows[0]);
+  } catch (err) {
+    console.error('❌ Errore di connessione o query:', err);
+  }
+}
+
+testDB(); // ← esegui al lancio
