@@ -47,6 +47,10 @@ export async function saveDocumento(doc) {
     utente_id
   } = doc;
 
+  // 🛡️ fallback automatico se data_fattura non è valida
+  const safeDataFattura = data_fattura && data_fattura.trim() !== '' ? data_fattura : new Date().toISOString().split("T")[0];
+
+
   const sql = `
     INSERT INTO documents (
       numero_fattura, data_fattura, importo, valuta, azienda,
@@ -60,7 +64,7 @@ export async function saveDocumento(doc) {
   `;
 
   const values = [
-    numero_fattura, data_fattura, importo, valuta, azienda,
+    numero_fattura, safeDataFattura, importo, valuta, azienda,
     tipo_pagamento, banca, tipo_documento, stato, metodo_pagamento,
     data_creazione, utente_id
   ];
