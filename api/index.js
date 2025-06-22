@@ -111,7 +111,7 @@ Rispondi solo con il JSON richiesto.
 app.post('/upload-audio', upload.single('audio'), async (req, res) => {
   try {
     if (!req.file || !req.file.mimetype || req.file.size === 0) {
-      return res.status(400).json({ error: 'File audio mancante o non valido.' });
+      return res.status(400).json({ error: 'File audio mancante o non valido.', spesa: null });
     }
 
     console.log("📁 Audio ricevuto:", req.file.originalname);
@@ -124,22 +124,24 @@ app.post('/upload-audio', upload.single('audio'), async (req, res) => {
 
     await saveDocumento(parsedData);
 
-    // ✅ Risposta coerente e valida per il frontend
-    res.status(200).json({
+    // ✅ Risposta corretta per il frontend
+    return res.status(200).json({
       message: 'Spesa vocale salvata con successo',
       spesa: parsedData
     });
   } catch (error) {
     console.error("❌ Errore /upload-audio:", error);
 
-    // Risposta errore dettagliata ma con status HTTP corretto per evitare errori nel frontend
-    res.status(200).json({
-      message: 'Errore nel salvataggio della spesa',
+    // ❗️Restituiamo status 200 comunque, ma senza `spesa`
+    return res.status(200).json({
+      message: 'Errore durante il salvataggio della spesa',
       error: error.message || 'Errore sconosciuto',
       spesa: null
     });
   }
 });
+
+
 
 
 /* === API legacy JSON === */
