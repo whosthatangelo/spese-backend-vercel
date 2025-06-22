@@ -1,4 +1,3 @@
-// api/index.js
 import express from 'express';
 import cors from 'cors';
 import multer from 'multer';
@@ -13,10 +12,9 @@ import ffmpegPath from 'ffmpeg-static';
 import { OpenAI } from 'openai';
 import {
   getAllSpese,
-  addSpesa,
-  updateSpesa,
-  deleteSpesa,
   saveDocumento,
+  updateSpesa,
+  deleteSpesa
 } from '../db.js';
 
 const openai = new OpenAI({
@@ -124,15 +122,12 @@ app.post('/upload-audio', upload.single('audio'), async (req, res) => {
 
     await saveDocumento(parsedData);
 
-    // ✅ Risposta corretta per il frontend
     return res.status(200).json({
       message: 'Spesa vocale salvata con successo',
       spesa: parsedData
     });
   } catch (error) {
     console.error("❌ Errore /upload-audio:", error);
-
-    // ❗️Restituiamo status 200 comunque, ma senza `spesa`
     return res.status(200).json({
       message: 'Errore durante il salvataggio della spesa',
       error: error.message || 'Errore sconosciuto',
@@ -141,10 +136,7 @@ app.post('/upload-audio', upload.single('audio'), async (req, res) => {
   }
 });
 
-
-
-
-/* === API legacy JSON === */
+/* === API spese === */
 app.get('/expenses', async (req, res) => {
   const spese = await getAllSpese();
   res.json(spese);
@@ -152,21 +144,29 @@ app.get('/expenses', async (req, res) => {
 
 app.post('/expenses', async (req, res) => {
   try {
-    await addSpesa(req.body);
+    await saveDocumento(req.body);
     res.status(201).json({ message: 'Spesa salvata' });
   } catch (err) {
     res.status(500).json({ error: 'Errore nel salvataggio' });
   }
 });
 
-app.put('/expenses/:id', async (req, res) => {
-  await updateSpesa(req.params.id, req.body);
-  res.json({ message: 'Spesa modificata' });
+app.put('/expenses/:numero_fattura', async (req, res) => {
+  try {
+    await updateSpesa(req.params.numero_fattura, req.body);
+    res.json({ message: 'Spesa modificata' });
+  } catch (err) {
+    res.status(500).json({ error: 'Errore nella modifica' });
+  }
 });
 
-app.delete('/expenses/:id', async (req, res) => {
-  await deleteSpesa(req.params.id);
-  res.json({ message: 'Spesa eliminata' });
+app.delete('/expenses/:numero_fattura', async (req, res) => {
+  try {
+    await deleteSpesa(req.params.numero_fattura);
+    res.json({ message: 'Spesa eliminata' });
+  } catch (err) {
+    res.status(500).json({ error: 'Errore nella cancellazione' });
+  }
 });
 
 app.get('/stats', async (req, res) => {
@@ -174,14 +174,11 @@ app.get('/stats', async (req, res) => {
   const totale = spese.reduce((acc, s) => acc + parseFloat(s.importo || 0), 0);
   const numero = spese.length;
   const perGiorno = spese.reduce((acc, s) => {
-    acc[s.data] = (acc[s.data] || 0) + parseFloat(s.importo || 0);
+    acc[s.data_fattura] = (acc[s.data_fattura] || 0) + parseFloat(s.importo || 0);
     return acc;
   }, {});
   const media_per_giorno = (totale / Object.keys(perGiorno).length).toFixed(2);
-  const prodotti = {};
-  spese.forEach(s => prodotti[s.prodotto] = (prodotti[s.prodotto] || 0) + 1);
-  const top_prodotto = Object.entries(prodotti).sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A';
-  res.json({ totale: totale.toFixed(2), numero, media_per_giorno, top_prodotto });
+  res.json({ totale: totale.toFixed(2), numero, media_per_giorno });
 });
 
 app.get('/', (req, res) => {

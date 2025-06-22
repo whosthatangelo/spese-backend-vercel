@@ -5,31 +5,64 @@ import { query } from './pg.js';
 const FILE_PATH = '/tmp/spese.json';
 
 export async function getAllSpese() {
-  try {
-    const data = await readFile(FILE_PATH, 'utf-8');
-    return JSON.parse(data);
-  } catch {
-    return [];
-  }
+  const res = await query('SELECT * FROM documents ORDER BY data_fattura DESC');
+  return res.rows;
 }
+
 
 export async function addSpesa(spesa) {
-  const spese = await getAllSpese();
-  spese.push({ id: Date.now(), ...spesa });
-  await writeFile(FILE_PATH, JSON.stringify(spese, null, 2));
+  const {
+    numero_fattura,
+    data_fattura,
+    importo,
+    valuta,
+    azienda,
+    tipo_pagamento,
+    banca,
+    tipo_documento,
+    stato,
+    metodo_pagamento,
+    data_creazione,
+    utente_id
+  } = spesa;
+
+  const sql = `
+    INSERT INTO documents (
+      numero_fattura, data_fattura, importo, valuta, azienda,
+      tipo_pagamento, banca, tipo_documento, stato, metodo_pagamento,
+      data_creazione, utente_id
+    ) VALUES (
+      $1, $2, $3, $4, $5,
+      $6, $7, $8, $9, $10,
+      $11, $12
+    )
+  `;
+
+  const values = [
+    numero_fattura, data_fattura, importo, valuta, azienda,
+    tipo_pagamento, banca, tipo_documento, stato, metodo_pagamento,
+    data_creazione, utente_id
+  ];
+
+  await query(sql, values);
 }
+
 
 export async function updateSpesa(id, nuovaSpesa) {
-  let spese = await getAllSpese();
-  spese = spese.map(s => s.id == id ? { ...s, ...nuovaSpesa } : s);
-  await writeFile(FILE_PATH, JSON.stringify(spese, null, 2));
+  const fields = Object.keys(nuovaSpesa);
+  const values = Object.values(nuovaSpesa);
+
+  const setString = fields.map((f, i) => `${f} = $${i + 1}`).join(', ');
+  const sql = `UPDATE documents SET ${setString} WHERE numero_fattura = $${fields.length + 1}`;
+
+  await query(sql, [...values, id]);
 }
 
+
 export async function deleteSpesa(id) {
-  let spese = await getAllSpese();
-  spese = spese.filter(s => s.id != id);
-  await writeFile(FILE_PATH, JSON.stringify(spese, null, 2));
+  await query('DELETE FROM documents WHERE numero_fattura = $1', [id]);
 }
+
 
 export async function saveDocumento(doc) {
   const {
