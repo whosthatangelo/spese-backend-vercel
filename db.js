@@ -48,15 +48,55 @@ export async function addSpesa(spesa) {
 }
 
 
-export async function updateSpesa(id, nuovaSpesa) {
-  const fields = Object.keys(nuovaSpesa);
-  const values = Object.values(nuovaSpesa);
+export async function updateSpesa(numero_fattura, nuovaSpesa) {
+  const {
+    data_fattura,
+    importo,
+    valuta,
+    azienda,
+    tipo_pagamento,
+    banca,
+    tipo_documento,
+    stato,
+    metodo_pagamento,
+    data_creazione,
+    utente_id
+  } = nuovaSpesa;
 
-  const setString = fields.map((f, i) => `${f} = $${i + 1}`).join(', ');
-  const sql = `UPDATE documents SET ${setString} WHERE numero_fattura = $${fields.length + 1}`;
+  const sql = `
+    UPDATE documents SET
+      data_fattura = $1,
+      importo = $2,
+      valuta = $3,
+      azienda = $4,
+      tipo_pagamento = $5,
+      banca = $6,
+      tipo_documento = $7,
+      stato = $8,
+      metodo_pagamento = $9,
+      data_creazione = $10,
+      utente_id = $11
+    WHERE numero_fattura = $12
+  `;
 
-  await query(sql, [...values, id]);
+  const values = [
+    data_fattura,
+    importo,
+    valuta,
+    azienda,
+    tipo_pagamento,
+    banca,
+    tipo_documento,
+    stato,
+    metodo_pagamento,
+    data_creazione,
+    utente_id,
+    numero_fattura
+  ];
+
+  await query(sql, values);
 }
+
 
 
 export async function deleteSpesa(id) {
