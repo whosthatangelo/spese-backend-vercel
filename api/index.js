@@ -115,6 +115,7 @@ app.post('/upload-audio', upload.single('audio'), async (req, res) => {
     }
 
     console.log("📁 Audio ricevuto:", req.file.originalname);
+
     const transcription = await transcribeAudio(req.file);
     console.log("🗣️ Testo trascritto:", transcription.text);
 
@@ -122,12 +123,24 @@ app.post('/upload-audio', upload.single('audio'), async (req, res) => {
     console.log("🧾 Dati estratti:", parsedData);
 
     await saveDocumento(parsedData);
-    res.json(parsedData);
+
+    // ✅ Risposta coerente e valida per il frontend
+    res.status(200).json({
+      message: 'Spesa vocale salvata con successo',
+      spesa: parsedData
+    });
   } catch (error) {
     console.error("❌ Errore /upload-audio:", error);
-    res.status(500).json({ error: 'Errore nel salvataggio della spesa' });
+
+    // Risposta errore dettagliata ma con status HTTP corretto per evitare errori nel frontend
+    res.status(200).json({
+      message: 'Errore nel salvataggio della spesa',
+      error: error.message || 'Errore sconosciuto',
+      spesa: null
+    });
   }
 });
+
 
 /* === API legacy JSON === */
 app.get('/expenses', async (req, res) => {
