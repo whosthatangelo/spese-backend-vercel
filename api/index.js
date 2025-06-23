@@ -17,6 +17,8 @@ import {
   deleteSpesa
 } from '../db.js';
 
+import db from '../db.js'; // Per query raw
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
   organization: process.env.OPENAI_ORG_ID,
@@ -30,6 +32,27 @@ const upload = multer({ dest: '/tmp' });
 
 app.use(cors());
 app.use(express.json());
+
+/* === LOGIN UTENTE === */
+app.post('/login', async (req, res) => {
+  const { email } = req.body;
+  if (!email) {
+    return res.status(400).json({ error: 'Email richiesta' });
+  }
+
+  try {
+    const result = await db.query('SELECT id FROM users WHERE email = $1', [email]);
+    if (result.rows.length > 0) {
+      return res.json({ userId: result.rows[0].id });
+    }
+
+    const insert = await db.query('INSERT INTO users (email) VALUES ($1) RETURNING id', [email]);
+    return res.json({ userId: insert.rows[0].id });
+  } catch (err) {
+    console.error('❌ Errore login:', err);
+    res.status(500).json({ error: 'Errore login utente' });
+  }
+});
 
 /* === Trascrizione vocale === */
 async function transcribeAudio(file) {
