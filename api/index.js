@@ -17,7 +17,8 @@ import {
   deleteSpesa
 } from '../db.js';
 
-import db from '../db.js'; // Per query raw
+import pg from 'pg';
+const db = new pg.Pool({ connectionString: process.env.POSTGRES_URL });
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
