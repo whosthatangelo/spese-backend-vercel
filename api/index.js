@@ -95,27 +95,43 @@ Hai ricevuto questo testo trascritto da un file audio:
 
 "${text}"
 
-Estrai in formato JSON i seguenti campi con valori più coerenti possibile:
-- numero_fattura
-- data_fattura (formato YYYY-MM-DD)
-- importo (solo il numero in euro)
-- valuta (EUR)
-- azienda (es: città o luogo citato)
-- tipo_pagamento (es: contanti, carta, bonifico)
-- banca (se presente)
-- tipo_documento (es: fattura, ricevuta)
-- stato (lasciare stringa vuota se non presente)
-- metodo_pagamento (stesso di tipo_pagamento se non distinto)
-- data_creazione (usa la data di oggi in formato YYYY-MM-DD)
-- utente_id (user_1)
+Devi capire se si tratta di una **spesa** (es: fattura, acquisto, pagamento) oppure di un **incasso** (es: incasso giornaliero, entrata, somma ricevuta).
 
-Rispondi solo con il JSON richiesto.
+1. Se è una **spesa**, estrai un oggetto JSON con questi campi:
+{
+  tipo: "spesa",
+  numero_fattura: "...",
+  data_fattura: "YYYY-MM-DD",
+  importo: ...,
+  valuta: "EUR",
+  azienda: "...",
+  tipo_pagamento: "...",
+  banca: "...",
+  tipo_documento: "...",
+  stato: "",
+  metodo_pagamento: "...",
+  data_creazione: "YYYY-MM-DD",
+  utente_id: "user_1"
+}
+
+2. Se è un **incasso**, estrai un oggetto JSON con questi campi:
+{
+  tipo: "incasso",
+  data_incasso: "YYYY-MM-DD",
+  importo: ...,
+  valuta: "EUR",
+  metodo_incasso: "...",
+  data_creazione: "YYYY-MM-DD",
+  utente_id: "user_1"
+}
+
+⚠️ Rispondi esclusivamente con un JSON valido. Nessun testo aggiuntivo.
 `;
 
   const completion = await openai.chat.completions.create({
     model: 'gpt-4',
     messages: [
-      { role: 'system', content: 'Sei un assistente che estrae dati da testi parlati trascritti.' },
+      { role: 'system', content: 'Sei un assistente che estrae dati strutturati da testi vocali trascritti.' },
       { role: 'user', content: prompt }
     ],
     temperature: 0.2
@@ -130,36 +146,62 @@ Rispondi solo con il JSON richiesto.
   }
 }
 
+
 /* === Upload Audio === */
 app.post('/upload-audio', upload.single('audio'), async (req, res) => {
-  try {
-    if (!req.file || !req.file.mimetype || req.file.size === 0) {
-      return res.status(400).json({ error: 'File audio mancante o non valido.', spesa: null });
+    try {
+      if (!req.file || !req.file.mimetype || req.file.size === 0) {
+        return res.status(400).json({ error: 'File audio mancante o non valido.', spesa: null });
+      }
+
+      console.log("📁 Audio ricevuto:", req.file.originalname);
+
+      const transcription = await transcribeAudio(req.file);
+      console.log("🗣️ Testo trascritto:", transcription.text);
+
+      const parsedData = await extractDataFromText(transcription.text);
+      console.log("📦 Dati estratti:", parsedData);
+
+      if (parsedData.tipo === 'spesa') {
+        await saveDocumento(parsedData);
+        return res.status(200).json({
+          message: 'Spesa salvata con successo',
+          spesa: parsedData
+        });
+      } else if (parsedData.tipo === 'incasso') {
+        await db.query(
+          `INSERT INTO incomes (data_incasso, importo, valuta, metodo_incasso, data_creazione, utente_id)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [
+            parsedData.data_incasso,
+            parsedData.importo,
+            parsedData.valuta,
+            parsedData.metodo_incasso,
+            parsedData.data_creazione,
+            parsedData.utente_id
+          ]
+        );
+        return res.status(200).json({
+          message: 'Incasso salvato con successo',
+          incasso: parsedData
+        });
+      } else {
+        return res.status(400).json({
+          message: 'Tipo non riconosciuto nel JSON',
+          error: 'Tipo mancante o non valido',
+          spesa: null
+        });
+      }
+    } catch (error) {
+      console.error("❌ Errore /upload-audio:", error);
+      return res.status(500).json({
+        message: 'Errore durante il salvataggio',
+        error: error.message || 'Errore sconosciuto',
+        spesa: null
+      });
     }
+  });
 
-    console.log("📁 Audio ricevuto:", req.file.originalname);
-
-    const transcription = await transcribeAudio(req.file);
-    console.log("🗣️ Testo trascritto:", transcription.text);
-
-    const parsedData = await extractDataFromText(transcription.text);
-    console.log("🧾 Dati estratti:", parsedData);
-
-    await saveDocumento(parsedData);
-
-    return res.status(200).json({
-      message: 'Spesa vocale salvata con successo',
-      spesa: parsedData
-    });
-  } catch (error) {
-    console.error("❌ Errore /upload-audio:", error);
-    return res.status(200).json({
-      message: 'Errore durante il salvataggio della spesa',
-      error: error.message || 'Errore sconosciuto',
-      spesa: null
-    });
-  }
-});
 
 /* === API spese === */
 app.get('/expenses', async (req, res) => {
