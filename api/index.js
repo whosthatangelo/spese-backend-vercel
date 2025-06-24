@@ -211,6 +211,18 @@ app.get('/expenses', async (req, res) => {
   res.json(spese);
 });
 
+/* === API incassi === */
+app.get('/incomes', async (req, res) => {
+  try {
+    const result = await db.query('SELECT * FROM incomes ORDER BY data_incasso DESC');
+    res.json(result.rows);
+  } catch (err) {
+    console.error('❌ Errore nel recupero incassi:', err);
+    res.status(500).json({ error: 'Errore nel recupero incassi' });
+  }
+});
+
+
 app.post('/expenses', async (req, res) => {
   try {
     await saveDocumento(req.body);
