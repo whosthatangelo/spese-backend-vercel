@@ -35,6 +35,7 @@ app.use(cors());
 app.use(express.json());
 
 /* === LOGIN UTENTE === */
+/* === LOGIN UTENTE SOLO SE GIÀ ESISTENTE === */
 app.post('/login', async (req, res) => {
   const { email } = req.body;
   if (!email) {
@@ -45,15 +46,15 @@ app.post('/login', async (req, res) => {
     const result = await db.query('SELECT id FROM users WHERE email = $1', [email]);
     if (result.rows.length > 0) {
       return res.json({ userId: result.rows[0].id });
+    } else {
+      return res.status(401).json({ error: 'Email non trovata' });
     }
-
-    const insert = await db.query('INSERT INTO users (email) VALUES ($1) RETURNING id', [email]);
-    return res.json({ userId: insert.rows[0].id });
   } catch (err) {
     console.error('❌ Errore login:', err);
     res.status(500).json({ error: 'Errore login utente' });
   }
 });
+
 
 /* === Trascrizione vocale === */
 async function transcribeAudio(file) {
