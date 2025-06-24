@@ -91,42 +91,44 @@ async function transcribeAudio(file) {
 /* === Parsing con OpenAI === */
 async function extractDataFromText(text) {
   const prompt = `
-Hai ricevuto questo testo trascritto da un file audio:
+  Hai ricevuto questo testo trascritto da un file audio:
 
-"${text}"
+  "${text}"
 
-Devi capire se si tratta di una **spesa** (es: fattura, acquisto, pagamento) oppure di un **incasso** (es: incasso giornaliero, entrata, somma ricevuta).
+  Devi capire con certezza se si tratta di una **spesa** (es: fattura, pagamento, acquisto) oppure di un **incasso** (es: incasso giornaliero, entrata di cassa, somma ricevuta).
 
-1. Se è una **spesa**, estrai un oggetto JSON con questi campi:
-{
-  tipo: "spesa",
-  numero_fattura: "...",
-  data_fattura: "YYYY-MM-DD",
-  importo: ...,
-  valuta: "EUR",
-  azienda: "...",
-  tipo_pagamento: "...",
-  banca: "...",
-  tipo_documento: "...",
-  stato: "",
-  metodo_pagamento: "...",
-  data_creazione: "YYYY-MM-DD",
-  utente_id: "user_1"
-}
+  🔹 Se è una **spesa**, l'utente sta comunicando una fattura o pagamento effettuato. In tal caso, restituisci solo un oggetto JSON con questi campi:
+  {
+    tipo: "spesa",
+    numero_fattura: "...",
+    data_fattura: "YYYY-MM-DD",
+    importo: ...,
+    valuta: "EUR",
+    azienda: "...",
+    tipo_pagamento: "...",
+    banca: "...",
+    tipo_documento: "...",
+    stato: "",
+    metodo_pagamento: "...",
+    data_creazione: "YYYY-MM-DD",
+    utente_id: "user_1"
+  }
 
-2. Se è un **incasso**, estrai un oggetto JSON con questi campi:
-{
-  tipo: "incasso",
-  data_incasso: "YYYY-MM-DD",
-  importo: ...,
-  valuta: "EUR",
-  metodo_incasso: "...",
-  data_creazione: "YYYY-MM-DD",
-  utente_id: "user_1"
-}
+  🔹 Se è un **incasso**, l'utente sta dichiarando un'entrata economica (es: "incasso del giorno", "ricevuto pagamento", "entrata giornaliera"). In tal caso, restituisci solo un oggetto JSON con questi campi:
+  {
+    tipo: "incasso",
+    data_incasso: "YYYY-MM-DD",
+    importo: ...,
+    valuta: "EUR",
+    metodo_incasso: "...",
+    data_creazione: "YYYY-MM-DD",
+    utente_id: "user_1"
+  }
 
-⚠️ Rispondi esclusivamente con un JSON valido. Nessun testo aggiuntivo.
-`;
+  ⚠️ ATTENZIONE: 
+  - Rispondi **esclusivamente** con un singolo oggetto JSON valido, senza testo extra.
+  - Se hai anche il minimo dubbio, preferisci la classificazione come "spesa".
+  `;
 
   const completion = await openai.chat.completions.create({
     model: 'gpt-4',
