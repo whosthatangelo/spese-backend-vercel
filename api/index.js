@@ -179,7 +179,7 @@ app.post('/upload-audio', upload.single('audio'), async (req, res) => {
             parsedData.importo,
             parsedData.valuta,
             parsedData.metodo_incasso,
-            parsedData.data_creazione,
+            new Date().toISOString(),
             parsedData.utente_id
           ]
         );
@@ -225,12 +225,17 @@ app.get('/incomes', async (req, res) => {
 
 app.post('/expenses', async (req, res) => {
   try {
-    await saveDocumento(req.body);
+    const spesaConData = {
+      ...req.body,
+      data_creazione: new Date().toISOString()
+    };
+    await saveDocumento(spesaConData);
     res.status(201).json({ message: 'Spesa salvata' });
   } catch (err) {
     res.status(500).json({ error: 'Errore nel salvataggio' });
   }
 });
+
 
 app.put('/expenses/:numero_fattura', async (req, res) => {
   try {
