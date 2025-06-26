@@ -120,13 +120,9 @@ export async function saveDocumento(doc) {
     utente_id
   } = doc;
 
-  const safeDataFattura = data_fattura && data_fattura.trim() !== '' 
-    ? data_fattura 
-    : new Date().toISOString().split("T")[0];
-
-  const safeDataCreazione = data_creazione && data_creazione.trim() !== '' 
-    ? data_creazione 
-    : new Date().toISOString();
+  // 🛡️ fallback automatico
+  const safeDataFattura = data_fattura && data_fattura.trim() !== '' ? data_fattura : new Date().toISOString().split("T")[0];
+  const safeDataCreazione = data_creazione && data_creazione.trim() !== '' ? data_creazione : new Date().toISOString();
 
   const sql = `
     INSERT INTO documents (
@@ -148,6 +144,7 @@ export async function saveDocumento(doc) {
 
   await query(sql, values);
 }
+
 
 
 async function testDB() {
