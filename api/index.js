@@ -226,7 +226,8 @@ app.get('/incomes', async (req, res) => {
 // 🗑️ Elimina un incasso
 app.delete('/incomes/:id', async (req, res) => {
   try {
-    await db.query('DELETE FROM incomes WHERE numero_fattura = $1', [req.params.id]);
+    const id = req.params.id;
+    await db.query('DELETE FROM incomes WHERE id = $1', [id]);
     res.json({ message: 'Incasso eliminato' });
   } catch (err) {
     console.error('❌ Errore nella cancellazione incasso:', err);
