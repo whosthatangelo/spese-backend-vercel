@@ -235,6 +235,27 @@ app.delete('/incomes/:id', async (req, res) => {
   }
 });
 
+// ✏️ Modifica un incasso
+app.put('/incomes/:id', async (req, res) => {
+  try {
+    const { data_incasso, importo, valuta, metodo_incasso, utente_id } = req.body;
+    await db.query(
+      `UPDATE incomes SET 
+        data_incasso = $1,
+        importo = $2,
+        valuta = $3,
+        metodo_incasso = $4,
+        utente_id = $5
+      WHERE id = $6`,
+      [data_incasso, importo, valuta, metodo_incasso, utente_id, req.params.id]
+    );
+    res.json({ message: 'Incasso aggiornato con successo' });
+  } catch (err) {
+    console.error('❌ Errore nella modifica incasso:', err);
+    res.status(500).json({ error: 'Errore nella modifica incasso' });
+  }
+});
+
 
 app.post('/expenses', async (req, res) => {
   try {
