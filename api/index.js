@@ -165,6 +165,7 @@ app.post('/upload-audio', upload.single('audio'), async (req, res) => {
       console.log("📦 Dati estratti:", parsedData);
 
       if (parsedData.tipo === 'spesa') {
+        parsedData.data_creazione = new Date().toISOString();  // ✅ Imposta timestamp reale
         await saveDocumento(parsedData);
         return res.status(200).json({
           message: 'Spesa salvata con successo',
