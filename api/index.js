@@ -301,6 +301,29 @@ app.get('/stats', async (req, res) => {
   res.json({ totale: totale.toFixed(2), numero, media_per_giorno });
 });
 
+app.get('/income-stats', async (req, res) => {
+  try {
+    const result = await db.query('SELECT * FROM incomes');
+    const incassi = result.rows;
+
+    const totale = incassi.reduce((acc, i) => acc + parseFloat(i.importo || 0), 0);
+    const numero = incassi.length;
+
+    const perGiorno = incassi.reduce((acc, i) => {
+      const giorno = i.data_incasso?.toISOString?.().split('T')[0] || i.data_incasso;
+      acc[giorno] = (acc[giorno] || 0) + parseFloat(i.importo || 0);
+      return acc;
+    }, {});
+
+    const media_per_giorno = (totale / Object.keys(perGiorno).length || 1).toFixed(2);
+
+    res.json({ totale: totale.toFixed(2), numero, media_per_giorno });
+  } catch (err) {
+    console.error('❌ Errore /income-stats:', err);
+    res.status(500).json({ error: 'Errore nel calcolo delle statistiche incassi' });
+  }
+});
+
 app.get('/', (req, res) => {
   res.send('✅ Backend attivo!');
 });
