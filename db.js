@@ -1,4 +1,3 @@
-// db.js
 import { readFile, writeFile } from 'fs/promises';
 import { query } from './pg.js';
 
@@ -8,7 +7,6 @@ export async function getAllSpese() {
   const res = await query('SELECT * FROM documents ORDER BY data_fattura DESC');
   return res.rows;
 }
-
 
 export async function addSpesa(spesa) {
   const {
@@ -47,9 +45,9 @@ export async function addSpesa(spesa) {
   await query(sql, values);
 }
 
-
-export async function updateSpesa(numero_fattura, nuovaSpesa) {
+export async function updateSpesa(id, nuovaSpesa) {
   const {
+    numero_fattura,
     data_fattura,
     importo,
     valuta,
@@ -65,21 +63,23 @@ export async function updateSpesa(numero_fattura, nuovaSpesa) {
 
   const sql = `
     UPDATE documents SET
-      data_fattura = $1,
-      importo = $2,
-      valuta = $3,
-      azienda = $4,
-      tipo_pagamento = $5,
-      banca = $6,
-      tipo_documento = $7,
-      stato = $8,
-      metodo_pagamento = $9,
-      data_creazione = $10,
-      utente_id = $11
-    WHERE numero_fattura = $12
+      numero_fattura = $1,
+      data_fattura = $2,
+      importo = $3,
+      valuta = $4,
+      azienda = $5,
+      tipo_pagamento = $6,
+      banca = $7,
+      tipo_documento = $8,
+      stato = $9,
+      metodo_pagamento = $10,
+      data_creazione = $11,
+      utente_id = $12
+    WHERE id = $13
   `;
 
   const values = [
+    numero_fattura,
     data_fattura,
     importo,
     valuta,
@@ -91,18 +91,15 @@ export async function updateSpesa(numero_fattura, nuovaSpesa) {
     metodo_pagamento,
     data_creazione,
     utente_id,
-    numero_fattura
+    id
   ];
 
   await query(sql, values);
 }
 
-
-
 export async function deleteSpesa(id) {
-  await query('DELETE FROM documents WHERE numero_fattura = $1', [id]);
+  await query('DELETE FROM documents WHERE id = $1', [id]);
 }
-
 
 export async function saveDocumento(doc) {
   const {
@@ -120,7 +117,6 @@ export async function saveDocumento(doc) {
     utente_id
   } = doc;
 
-  // 🛡️ fallback automatico
   const safeDataFattura = data_fattura && data_fattura.trim() !== '' ? data_fattura : new Date().toISOString().split("T")[0];
   const safeDataCreazione = data_creazione && data_creazione.trim() !== '' ? data_creazione : new Date().toISOString();
 
@@ -144,8 +140,6 @@ export async function saveDocumento(doc) {
 
   await query(sql, values);
 }
-
-
 
 async function testDB() {
   try {
