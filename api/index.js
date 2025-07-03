@@ -332,7 +332,7 @@ app.get('/', (req, res) => {
 // Ultimi 3 incassi
 app.get('/latest-income', async (req, res) => {
   const result = await db.query(`
-    SELECT * FROM entrate
+    SELECT * FROM incomes
     ORDER BY data_creazione DESC
     LIMIT 3
   `);
