@@ -328,4 +328,26 @@ app.get('/', (req, res) => {
   res.send('✅ Backend attivo!');
 });
 
+
+// Ultimi 3 incassi
+app.get('/latest-income', async (req, res) => {
+  const result = await db.query(`
+    SELECT * FROM entrate
+    ORDER BY data_creazione DESC
+    LIMIT 3
+  `);
+  res.json(result.rows);
+});
+
+// Ultime 3 spese
+app.get('/latest-expenses', async (req, res) => {
+  const result = await db.query(`
+    SELECT * FROM documents
+    ORDER BY data_creazione DESC
+    LIMIT 3
+  `);
+  res.json(result.rows);
+});
+
+
 export default app;
