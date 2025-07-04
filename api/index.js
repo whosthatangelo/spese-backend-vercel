@@ -146,38 +146,39 @@ async function extractDataFromText(text) {
 
   "${text}"
 
-  Devi capire con certezza se si tratta di una **spesa** oppure di un **incasso**.
+  Devi determinare con certezza se si tratta di una **spesa** oppure di un **incasso**.
 
-  🔹 Se è una **spesa**, restituisci:
+  🔹 Se è una **spesa**, restituisci solo questo oggetto JSON:
   {
-    tipo: "spesa",
-    numero_fattura: "...",
-    data_fattura: data in formato "YYYY-MM-DD" (es: "2025-07-04"), anche se l'utente dice "oggi", "ieri", ecc.
-    importo: ...,
-    valuta: "EUR",
-    azienda: "...",
-    tipo_pagamento: "...",
-    banca: "...",
-    tipo_documento: "...",
-    stato: "",
-    metodo_pagamento: "...",
-    data_creazione: "YYYY-MM-DD",
-    utente_id: "user_1"
+    "tipo": "spesa",
+    "numero_fattura": "...",
+    "data_fattura": "YYYY-MM-DD",
+    "importo": ...,
+    "valuta": "EUR",
+    "azienda": "...",
+    "tipo_pagamento": "...",
+    "banca": "...",
+    "tipo_documento": "...",
+    "stato": "",
+    "metodo_pagamento": "...",
+    "data_creazione": "YYYY-MM-DD",
+    "utente_id": "user_1"
   }
 
-  🔹 Se è un **incasso**, restituisci:
+  🔹 Se è un **incasso**, restituisci solo questo oggetto JSON:
   {
-    tipo: "incasso",
-    data_incasso: data in formato "YYYY-MM-DD" (es: "2025-07-04"), anche se l'utente dice "oggi", "ieri", ecc.
-    importo: ...,
-    valuta: "EUR",
-    metodo_incasso: "...",
-    data_creazione: "YYYY-MM-DD",
-    utente_id: "user_1"
+    "tipo": "incasso",
+    "data_incasso": "YYYY-MM-DD",
+    "importo": ...,
+    "valuta": "EUR",
+    "metodo_incasso": "...",
+    "data_creazione": "YYYY-MM-DD",
+    "utente_id": "user_1"
   }
 
-  ⚠️ Rispondi **solo** con JSON valido. Se hai dubbi, scegli "spesa".
+  ⚠️ IMPORTANTISSIMO: NON scrivere alcuna spiegazione. NON usare parole fuori dal JSON. Rispondi solo e unicamente con l'oggetto JSON. Se hai dubbi, scegli "spesa".
   `;
+
 
   const completion = await openai.chat.completions.create({
     model: 'gpt-4',
@@ -191,6 +192,7 @@ async function extractDataFromText(text) {
   const response = completion.choices[0].message.content;
 
   try {
+    console.log("🧠 Output AI grezzo:", response);
     const raw = JSON.parse(response);
     return normalizeFields(raw);
   } catch (err) {
