@@ -38,26 +38,35 @@ app.use(express.json());
 /* 1) Middleware: estrai userId e companyId dagli headers */
 /* ——————————————————————————————————————————————————————————— */
 app.use((req, res, next) => {
-  const userId = req.header('x-user-id');
-  if (userId) {
-    req.userId = userId;
+  const userIdHeader = req.header('x-user-id');
+  const companyId = req.header('x-company-id');
+
+  // Cast esplicito: evita errore "text = integer"
+  if (userIdHeader) {
+    const parsedUserId = parseInt(userIdHeader, 10);
+    if (isNaN(parsedUserId)) {
+      return res.status(400).json({ error: 'x-user-id non valido' });
+    }
+    req.userId = parsedUserId;
   }
 
-  // consenti /login e /companies senza companyId
+  // consenti /login e /companies anche senza x-company-id
   if (req.path === '/login' || req.path === '/companies') {
     return next();
   }
 
-  const companyId = req.header('x-company-id');
-  if (!userId) {
+  if (!req.userId) {
     return res.status(401).json({ error: 'Utente non autenticato' });
   }
+
   if (!companyId) {
     return res.status(400).json({ error: 'Header x-company-id mancante' });
   }
+
   req.companyId = companyId;
   next();
 });
+
 
 
 /* ——————————————————————————————————————————————————————————— */
@@ -97,11 +106,11 @@ app.use(
 /* 3) GET /companies → lista aziende dell’utente */
 /* ——————————————————————————————————————————————————————————— */
 app.get('/companies', async (req, res) => {
-  const userId = parseInt(req.userId, 10);
+  const userId = req.userId;
   console.log(`🔎 Chiamata /companies per userId: ${userId}`);
 
-  if (isNaN(userId)) {
-    return res.status(400).json({ error: 'userId non valido' });
+  if (!userId || isNaN(userId)) {
+    return res.status(400).json({ error: 'userId non valido o mancante' });
   }
 
   try {
@@ -118,6 +127,7 @@ app.get('/companies', async (req, res) => {
     res.status(500).json({ error: 'Errore interno nel recupero aziende' });
   }
 });
+
 
 
 
