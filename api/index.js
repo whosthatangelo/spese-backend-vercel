@@ -91,405 +91,151 @@ async function transcribeAudio(file) {
 // ===== VERSIONE MIGLIORATA DI normalizeFields =====
 
 function normalizeFields(data) {
-  const normalize = (value) => value?.toLowerCase()?.trim().replace(/\s+/g, ' ');
+  const normalize = (value) => value?.toLowerCase()?.trim();
   const isValidDate = (str) => /^\d{4}-\d{2}-\d{2}$/.test(str);
 
-  // 🧠 Sistema di parsing date molto più intelligente
+  // ✨ Mappa parole tipo "oggi" in vere date
   const parseNaturalDate = (value) => {
-    if (!value) return null;
-
     const today = new Date();
-    const normalized = normalize(value);
-
-    // Date relative
-    const relativePatterns = {
-      'oggi': 0,
-      'ieri': -1,
-      'domani': 1,
-      'dopodomani': 2,
-      'l\'altro ieri': -2,
-      'altroieri': -2
-    };
-
-    if (relativePatterns.hasOwnProperty(normalized)) {
+    if (value === "oggi") return today.toISOString().split("T")[0];
+    if (value === "ieri") {
       const d = new Date(today);
-      d.setDate(today.getDate() + relativePatterns[normalized]);
+      d.setDate(today.getDate() - 1);
       return d.toISOString().split("T")[0];
     }
-
-    // Giorni della settimana
-    const weekDays = ['domenica', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato'];
-    const dayIndex = weekDays.indexOf(normalized);
-    if (dayIndex !== -1) {
-      const targetDay = new Date(today);
-      const todayIndex = today.getDay();
-      let daysToAdd = dayIndex - todayIndex;
-
-      // Se il giorno è già passato questa settimana, assumiamo la settimana prossima
-      if (daysToAdd <= 0) daysToAdd += 7;
-
-      targetDay.setDate(today.getDate() + daysToAdd);
-      return targetDay.toISOString().split("T")[0];
+    if (value === "domani") {
+      const d = new Date(today);
+      d.setDate(today.getDate() + 1);
+      return d.toISOString().split("T")[0];
     }
-
-    // Formati data italiani
-    const italianDatePatterns = [
-      /^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/,  // gg/mm/yyyy
-      /^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2})$/,  // gg/mm/yy
-      /^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})$/   // yyyy/mm/gg
-    ];
-
-    for (const pattern of italianDatePatterns) {
-      const match = value.match(pattern);
-      if (match) {
-        let [, first, second, third] = match;
-        let year, month, day;
-
-        if (pattern === italianDatePatterns[2]) {
-          // yyyy/mm/gg
-          year = parseInt(first);
-          month = parseInt(second);
-          day = parseInt(third);
-        } else {
-          // gg/mm/yyyy o gg/mm/yy
-          day = parseInt(first);
-          month = parseInt(second);
-          year = parseInt(third);
-          if (year < 100) year += 2000; // Converte yy in yyyy
-        }
-
-        if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-          return `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
-        }
-      }
-    }
-
     return value;
   };
 
-  // 💰 Mapping più completo per metodi di pagamento
   const metodoPagamentoMap = {
     'contanti': 'Contanti',
     'cash': 'Contanti',
-    'denaro': 'Contanti',
-    'liquidi': 'Contanti',
     'bancomat': 'POS',
     'pos': 'POS',
-    'carta di debito': 'POS',
     'carta': 'Carta di Credito',
     'carta di credito': 'Carta di Credito',
-    'credit card': 'Carta di Credito',
-    'bonifico': 'Bonifico',
-    'bonifico bancario': 'Bonifico',
-    'trasferimento': 'Bonifico',
-    'assegno': 'Assegno',
-    'paypal': 'PayPal',
-    'satispay': 'Satispay',
-    'revolut': 'Revolut',
-    'n26': 'N26',
-    'postepay': 'Postepay'
+    'bonifico': 'Bonifico'
   };
 
-  // 📄 Mapping documenti più dettagliato
   const tipoDocumentoMap = {
     'fattura': 'Fattura',
-    'fattura elettronica': 'Fattura',
     'documento di trasporto': 'Documento di Trasporto',
-    'ddt': 'Documento di Trasporto',
     'bolla': 'Documento di Trasporto',
-    'bolla di consegna': 'Documento di Trasporto',
-    'ricevuta': 'Ricevuta',
-    'scontrino': 'Scontrino',
-    'scontrino fiscale': 'Scontrino',
-    'nota di credito': 'Nota di Credito',
-    'preventivo': 'Preventivo',
-    'proforma': 'Fattura Proforma'
+    'ddt': 'Documento di Trasporto'
   };
 
-  // 💳 Mapping tipologie di pagamento
   const tipoPagamentoMap = {
     'fine mese': 'Fine mese',
-    'fm': 'Fine mese',
     'immediato': 'Immediato',
-    'subito': 'Immediato',
-    'contanti': 'Immediato',
     '30 giorni': '30 giorni',
-    '60 giorni': '60 giorni',
-    '90 giorni': '90 giorni',
-    'a vista': 'A vista',
-    'alla consegna': 'Alla consegna',
-    'anticipato': 'Anticipato',
-    'rateale': 'Rateale',
-    'rate': 'Rateale'
+    'a vista': 'A vista'
   };
 
-  // 🏢 Normalizzazione nome azienda
-  const normalizeCompanyName = (name) => {
-    if (!name) return name;
+  if (data.metodo_pagamento)
+    data.metodo_pagamento = metodoPagamentoMap[normalize(data.metodo_pagamento)] || data.metodo_pagamento;
 
-    // Rimuove articoli comuni e normalizza
-    const cleaned = name
-      .replace(/^(la |il |lo |le |gli |l'|un |una |uno )/i, '')
-      .replace(/\b(s\.r\.l|srl|s\.p\.a|spa|s\.n\.c|snc|s\.a\.s|sas|s\.s|ss)\b/gi, match => match.toUpperCase())
-      .trim();
+  if (data.tipo_documento)
+    data.tipo_documento = tipoDocumentoMap[normalize(data.tipo_documento)] || data.tipo_documento;
 
-    // Capitalizza prima lettera di ogni parola
-    return cleaned.replace(/\b\w/g, l => l.toUpperCase());
-  };
+  if (data.tipo_pagamento)
+    data.tipo_pagamento = tipoPagamentoMap[normalize(data.tipo_pagamento)] || data.tipo_pagamento;
 
-  // 💶 Normalizzazione importo
-  const normalizeAmount = (amount) => {
-    if (typeof amount === 'number') return amount;
-    if (!amount) return 0;
+  if (data.metodo_incasso)
+    data.metodo_incasso = metodoPagamentoMap[normalize(data.metodo_incasso)] || data.metodo_incasso;
 
-    const cleaned = amount.toString()
-      .replace(/[^\d,.-]/g, '') // Rimuove tutto tranne numeri, virgole, punti, trattini
-      .replace(/,/g, '.'); // Converte virgole in punti
-
-    const parsed = parseFloat(cleaned);
-    return isNaN(parsed) ? 0 : Math.abs(parsed); // Sempre positivo
-  };
-
-  // Applica tutte le normalizzazioni
-  try {
-    // Normalizza metodi di pagamento
-    if (data.metodo_pagamento) {
-      data.metodo_pagamento = metodoPagamentoMap[normalize(data.metodo_pagamento)] || 
-                              data.metodo_pagamento;
+  // 🗓️ Normalizza le date
+  if (data.data_fattura) {
+    data.data_fattura = parseNaturalDate(normalize(data.data_fattura));
+    if (data.data_fattura !== "non disponibile" && !isValidDate(data.data_fattura)) {
+      throw new Error(`Formato data_fattura non valido: ${data.data_fattura}`);
     }
-
-    if (data.metodo_incasso) {
-      data.metodo_incasso = metodoPagamentoMap[normalize(data.metodo_incasso)] || 
-                            data.metodo_incasso;
-    }
-
-    // Normalizza tipo documento
-    if (data.tipo_documento) {
-      data.tipo_documento = tipoDocumentoMap[normalize(data.tipo_documento)] || 
-                            data.tipo_documento;
-    }
-
-    // Normalizza tipo pagamento
-    if (data.tipo_pagamento) {
-      data.tipo_pagamento = tipoPagamentoMap[normalize(data.tipo_pagamento)] || 
-                            data.tipo_pagamento;
-    }
-
-    // Normalizza nome azienda
-    if (data.azienda) {
-      data.azienda = normalizeCompanyName(data.azienda);
-    }
-
-    // Normalizza importo
-    if (data.importo) {
-      data.importo = normalizeAmount(data.importo);
-    }
-
-    // Normalizza date
-    ['data_fattura', 'data_incasso', 'data_creazione'].forEach(field => {
-      if (data[field]) {
-        const parsedDate = parseNaturalDate(data[field]);
-
-        if (parsedDate && parsedDate !== "non disponibile") {
-          if (isValidDate(parsedDate)) {
-            data[field] = parsedDate;
-          } else if (field === 'data_creazione') {
-            // Fallback per data_creazione
-            data[field] = new Date().toISOString().split("T")[0];
-          } else {
-            data[field] = "non disponibile";
-          }
-        }
-      }
-    });
-
-    // Valida e normalizza valuta
-    if (data.valuta) {
-      const validCurrencies = ['EUR', 'USD', 'GBP', 'CHF'];
-      const normalized = data.valuta.toUpperCase();
-      data.valuta = validCurrencies.includes(normalized) ? normalized : 'EUR';
-    }
-
-    return data;
-
-  } catch (error) {
-    console.error('❌ Errore durante normalizzazione:', error);
-    throw new Error(`Errore normalizzazione: ${error.message}`);
   }
+
+  if (data.data_incasso) {
+    data.data_incasso = parseNaturalDate(normalize(data.data_incasso));
+    if (data.data_incasso !== "non disponibile" && !isValidDate(data.data_incasso)) {
+      throw new Error(`Formato data_incasso non valido: ${data.data_incasso}`);
+    }
+  }
+
+  if (data.data_creazione) {
+    data.data_creazione = parseNaturalDate(normalize(data.data_creazione));
+    if (!isValidDate(data.data_creazione)) {
+      // fallback automatico alla data corrente se errata
+      data.data_creazione = new Date().toISOString().split("T")[0];
+    }
+  }
+
+  return data;
 }
 
-// ===== VERSIONE MIGLIORATA DI extractDataFromText =====
 
-async function extractDataFromText(text, retryCount = 0) {
-  const maxRetries = 2;
 
-  // 🧹 Pre-processing del testo
-  const cleanText = text
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase();
-
-  // 🔍 Rilevamento intelligente del tipo (spesa vs incasso)
-  const detectType = (text) => {
-    const incomeKeywords = ['incasso', 'ricevuto', 'introito', 'guadagno', 'entrata', 'vendita', 'fatturato'];
-    const expenseKeywords = ['spesa', 'pagato', 'acquistato', 'comprato', 'fattura', 'costo', 'bolletta'];
-
-    const lowerText = text.toLowerCase();
-    const incomeScore = incomeKeywords.reduce((acc, word) => acc + (lowerText.includes(word) ? 1 : 0), 0);
-    const expenseScore = expenseKeywords.reduce((acc, word) => acc + (lowerText.includes(word) ? 1 : 0), 0);
-
-    return incomeScore > expenseScore ? 'incasso' : 'spesa';
-  };
-
-  const detectedType = detectType(cleanText);
-
-  // 🎯 Prompt molto più dettagliato e specifico
+/* === Parsing con OpenAI === */
+async function extractDataFromText(text) {
   const prompt = `
-Analizza questo testo trascritto da audio e estrai i dati in formato JSON.
+  Hai ricevuto questo testo trascritto da un file audio:
 
-TESTO: "${text}"
+  "${text}"
 
-TIPO RILEVATO: ${detectedType}
+  Devi determinare con certezza se si tratta di una **spesa** oppure di un **incasso**.
 
-ISTRUZIONI SPECIFICHE:
-1. Determina se è una SPESA o un INCASSO basandoti sul contesto
-2. Se menzioni "ho pagato", "ho speso", "fattura", "bolletta" → SPESA
-3. Se menzioni "ho ricevuto", "incasso", "vendita", "guadagno" → INCASSO
-4. Estrai SOLO i dati menzionati nel testo, usa "non disponibile" per quelli mancanti
-5. Per le date, riconosci formati italiani e parole come "oggi", "ieri", "lunedì", ecc.
-6. Per gli importi, riconosci formati italiani con virgole (es: "12,50")
-7. Identifica automaticamente metodi di pagamento comuni
+  🔹 Se è una **spesa**, restituisci solo questo oggetto JSON:
+  {
+    "tipo": "spesa",
+    "numero_fattura": "...",
+    "data_fattura": "YYYY-MM-DD",
+    "importo": ...,
+    "valuta": "EUR",
+    "azienda": "...",
+    "tipo_pagamento": "...",
+    "banca": "...",
+    "tipo_documento": "...",
+    "stato": "",
+    "metodo_pagamento": "...",
+    "data_creazione": "YYYY-MM-DD",
+    "utente_id": "user_1"
+  }
 
-SCHEMA SPESA:
-{
-  "tipo": "spesa",
-  "numero_fattura": "string o non disponibile",
-  "data_fattura": "YYYY-MM-DD o non disponibile",
-  "importo": numero,
-  "valuta": "EUR",
-  "azienda": "string o non disponibile",
-  "tipo_pagamento": "string o non disponibile",
-  "banca": "string o non disponibile", 
-  "tipo_documento": "string o non disponibile",
-  "stato": "string o non disponibile",
-  "metodo_pagamento": "string o non disponibile",
-  "data_creazione": "YYYY-MM-DD",
-  "utente_id": "user_1"
-}
+  🔹 Se è un **incasso**, restituisci solo questo oggetto JSON:
+  {
+    "tipo": "incasso",
+    "data_incasso": "YYYY-MM-DD",
+    "importo": ...,
+    "valuta": "EUR",
+    "metodo_incasso": "...",
+    "data_creazione": "YYYY-MM-DD",
+    "utente_id": "user_1"
+  }
 
-SCHEMA INCASSO:
-{
-  "tipo": "incasso",
-  "data_incasso": "YYYY-MM-DD o non disponibile",
-  "importo": numero,
-  "valuta": "EUR",
-  "metodo_incasso": "string o non disponibile",
-  "data_creazione": "YYYY-MM-DD",
-  "utente_id": "user_1"
-}
-
-ESEMPI PRATICI:
-- "Ho pagato 50 euro oggi alla Coop con bancomat" → spesa, importo=50, azienda="Coop", metodo_pagamento="POS"
-- "Ricevuto 1200 euro da cliente ieri" → incasso, importo=1200, data_incasso="ieri"
-- "Fattura 123 di 150,50 euro pagata con carta" → spesa, numero_fattura="123", importo=150.50
-
-RISPONDI SOLO CON IL JSON VALIDO. NESSUN TESTO AGGIUNTIVO.
+  ⚠️ Rispondi solo con un oggetto JSON valido. Non scrivere spiegazioni. Non includere testo aggiuntivo. Nessun preambolo. Nessun commento.
+  Se hai dubbi, scegli “spesa”.
   `;
 
+
+
+  const completion = await openai.chat.completions.create({
+    model: 'gpt-4',
+    messages: [
+      { role: 'system', content: 'Sei un assistente che estrae dati strutturati da testi vocali trascritti.' },
+      { role: 'user', content: prompt }
+    ],
+    temperature: 0.2
+  });
+
+  const response = completion.choices[0].message.content;
+
   try {
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o', // Modello più recente e potente
-      messages: [
-        { 
-          role: 'system', 
-          content: 'Sei un esperto contabile che estrae dati finanziari da testi trascritti. Rispondi sempre con JSON valido.' 
-        },
-        { role: 'user', content: prompt }
-      ],
-      temperature: 0.1, // Più deterministico
-      max_tokens: 500,
-      response_format: { type: "json_object" } // Forza risposta JSON
-    });
-
-    const response = completion.choices[0].message.content;
-    console.log("🧠 Output AI:", response);
-
-    // 🔧 Parsing con gestione errori migliorata
-    let parsedData;
-    try {
-      parsedData = JSON.parse(response);
-    } catch (jsonError) {
-      console.error("❌ Errore JSON:", jsonError);
-
-      // Tenta di pulire e ri-parsare
-      const cleanedResponse = response
-        .replace(/```json\n?/g, '')
-        .replace(/```\n?/g, '')
-        .replace(/^\s*[\r\n]/, '')
-        .replace(/[\r\n]\s*$/, '');
-
-      parsedData = JSON.parse(cleanedResponse);
-    }
-
-    // 🔍 Validazione dei dati estratti
-    const validateData = (data) => {
-      if (!data.tipo || !['spesa', 'incasso'].includes(data.tipo)) {
-        throw new Error('Tipo non valido o mancante');
-      }
-
-      if (!data.importo || typeof data.importo !== 'number' || data.importo <= 0) {
-        throw new Error('Importo non valido o mancante');
-      }
-
-      // Imposta valori di default se mancanti
-      data.valuta = data.valuta || 'EUR';
-      data.utente_id = data.utente_id || 'user_1';
-      data.data_creazione = data.data_creazione || new Date().toISOString().split('T')[0];
-
-      return data;
-    };
-
-    const validatedData = validateData(parsedData);
-
-    // 🎯 Applica normalizzazione
-    const normalizedData = normalizeFields(validatedData);
-
-    console.log("✅ Dati finali:", normalizedData);
-    return normalizedData;
-
-  } catch (error) {
-    console.error(`❌ Errore tentativo ${retryCount + 1}:`, error.message);
-
-    // 🔄 Retry con prompt semplificato
-    if (retryCount < maxRetries) {
-      console.log(`🔄 Ritentativo ${retryCount + 1}/${maxRetries}...`);
-
-      const simplifiedPrompt = `
-Estrai dati da: "${text}"
-Rispondi con JSON valido:
-${detectedType === 'spesa' ? `
-{"tipo":"spesa","importo":0,"valuta":"EUR","azienda":"non disponibile","data_fattura":"non disponibile","metodo_pagamento":"non disponibile","utente_id":"user_1"}
-` : `
-{"tipo":"incasso","importo":0,"valuta":"EUR","data_incasso":"non disponibile","metodo_incasso":"non disponibile","utente_id":"user_1"}
-`}
-      `;
-
-      return await extractDataFromText(simplifiedPrompt, retryCount + 1);
-    }
-
-    // 🚨 Fallback finale con dati minimal
-    console.log("🚨 Fallback ai dati minimal");
-    return {
-      tipo: detectedType,
-      importo: 0,
-      valuta: 'EUR',
-      data_creazione: new Date().toISOString().split('T')[0],
-      utente_id: 'user_1',
-      ...(detectedType === 'spesa' 
-        ? { azienda: 'non disponibile', metodo_pagamento: 'non disponibile' }
-        : { metodo_incasso: 'non disponibile' }
-      )
-    };
+    console.log("🧠 Output AI grezzo:", response);
+    const raw = JSON.parse(response);
+    return normalizeFields(raw);
+  } catch (err) {
+    console.error("❌ Errore parsing JSON:", err);
+    throw new Error("Parsing JSON fallito.");
   }
 }
 
