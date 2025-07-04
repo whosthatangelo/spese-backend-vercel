@@ -90,9 +90,25 @@ async function transcribeAudio(file) {
 
 function normalizeFields(data) {
   const normalize = (value) => value?.toLowerCase()?.trim();
-
   const isValidDate = (str) => /^\d{4}-\d{2}-\d{2}$/.test(str);
-  
+
+  // ✨ Mappa parole tipo "oggi" in vere date
+  const parseNaturalDate = (value) => {
+    const today = new Date();
+    if (value === "oggi") return today.toISOString().split("T")[0];
+    if (value === "ieri") {
+      const d = new Date(today);
+      d.setDate(today.getDate() - 1);
+      return d.toISOString().split("T")[0];
+    }
+    if (value === "domani") {
+      const d = new Date(today);
+      d.setDate(today.getDate() + 1);
+      return d.toISOString().split("T")[0];
+    }
+    return value;
+  };
+
   const metodoPagamentoMap = {
     'contanti': 'Contanti',
     'cash': 'Contanti',
@@ -128,15 +144,32 @@ function normalizeFields(data) {
   if (data.metodo_incasso)
     data.metodo_incasso = metodoPagamentoMap[normalize(data.metodo_incasso)] || data.metodo_incasso;
 
-  if (data.data_fattura && !isValidDate(data.data_fattura)) {
-    throw new Error(`Formato data_fattura non valido: ${data.data_fattura}`);
+  // 🗓️ Normalizza le date
+  if (data.data_fattura) {
+    data.data_fattura = parseNaturalDate(normalize(data.data_fattura));
+    if (data.data_fattura !== "non disponibile" && !isValidDate(data.data_fattura)) {
+      throw new Error(`Formato data_fattura non valido: ${data.data_fattura}`);
+    }
   }
-  if (data.data_incasso && !isValidDate(data.data_incasso)) {
-    throw new Error(`Formato data_incasso non valido: ${data.data_incasso}`);
+
+  if (data.data_incasso) {
+    data.data_incasso = parseNaturalDate(normalize(data.data_incasso));
+    if (data.data_incasso !== "non disponibile" && !isValidDate(data.data_incasso)) {
+      throw new Error(`Formato data_incasso non valido: ${data.data_incasso}`);
+    }
   }
-  
+
+  if (data.data_creazione) {
+    data.data_creazione = parseNaturalDate(normalize(data.data_creazione));
+    if (!isValidDate(data.data_creazione)) {
+      // fallback automatico alla data corrente se errata
+      data.data_creazione = new Date().toISOString().split("T")[0];
+    }
+  }
+
   return data;
 }
+
 
 
 /* === Parsing con OpenAI === */
