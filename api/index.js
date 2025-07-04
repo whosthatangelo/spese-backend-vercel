@@ -97,25 +97,28 @@ app.use(
 /* 3) GET /companies → lista aziende dell’utente */
 /* ——————————————————————————————————————————————————————————— */
 app.get('/companies', async (req, res) => {
-  try {
-    const { userId } = req;
-    console.log("🔎 Chiamata /companies per userId:", userId);  // <— aggiungi questo
+  const userId = parseInt(req.userId, 10);
+  console.log(`🔎 Chiamata /companies per userId: ${userId}`);
 
-    const userIdInt = parseInt(req.userId, 10);
+  if (isNaN(userId)) {
+    return res.status(400).json({ error: 'userId non valido' });
+  }
+
+  try {
     const result = await db.query(`
       SELECT c.id, c.nome
       FROM companies c
       JOIN user_companies uc ON uc.azienda_id = c.id
       WHERE uc.utente_id = $1
-    `, [userIdInt]);
-
+    `, [userId]);
 
     res.json(result.rows);
   } catch (err) {
     console.error('❌ Errore /companies:', err);
-    res.status(500).json({ error: 'Impossibile recuperare aziende' });
+    res.status(500).json({ error: 'Errore interno nel recupero aziende' });
   }
 });
+
 
 
 
