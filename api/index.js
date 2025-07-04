@@ -38,11 +38,16 @@ app.use(express.json());
 /* 1) Middleware: estrai userId e companyId dagli headers */
 /* ——————————————————————————————————————————————————————————— */
 app.use((req, res, next) => {
-  // escludi /login e /companies
+  const userId = req.header('x-user-id');
+  if (userId) {
+    req.userId = userId;
+  }
+
+  // consenti /login e /companies senza companyId
   if (req.path === '/login' || req.path === '/companies') {
     return next();
   }
-  const userId    = req.header('x-user-id');
+
   const companyId = req.header('x-company-id');
   if (!userId) {
     return res.status(401).json({ error: 'Utente non autenticato' });
@@ -50,10 +55,10 @@ app.use((req, res, next) => {
   if (!companyId) {
     return res.status(400).json({ error: 'Header x-company-id mancante' });
   }
-  req.userId    = userId;
   req.companyId = companyId;
   next();
 });
+
 
 /* ——————————————————————————————————————————————————————————— */
 /* 2) Middleware: verifica che user appartenga alla company */
