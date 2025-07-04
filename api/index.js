@@ -101,12 +101,14 @@ app.get('/companies', async (req, res) => {
     const { userId } = req;
     console.log("🔎 Chiamata /companies per userId:", userId);  // <— aggiungi questo
 
+    const userIdInt = parseInt(req.userId, 10);
     const result = await db.query(`
       SELECT c.id, c.nome
       FROM companies c
       JOIN user_companies uc ON uc.azienda_id = c.id
       WHERE uc.utente_id = $1
-    `, [userId]);
+    `, [userIdInt]);
+
 
     res.json(result.rows);
   } catch (err) {
