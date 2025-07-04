@@ -122,6 +122,7 @@ function normalizeFields(data) {
   const tipoDocumentoMap = {
     'fattura': 'Fattura',
     'documento di trasporto': 'Documento di Trasporto',
+    'bolla': 'Documento di Trasporto',
     'ddt': 'Documento di Trasporto'
   };
 
@@ -191,7 +192,7 @@ async function extractDataFromText(text) {
     "azienda": "...",
     "tipo_pagamento": "...",
     "banca": "...",
-    "tipo_documento": "Fattura",
+    "tipo_documento": "...",
     "stato": "",
     "metodo_pagamento": "...",
     "data_creazione": "YYYY-MM-DD",
