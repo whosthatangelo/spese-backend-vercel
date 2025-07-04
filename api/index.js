@@ -158,7 +158,7 @@ async function extractDataFromText(text) {
     "azienda": "...",
     "tipo_pagamento": "...",
     "banca": "...",
-    "tipo_documento": "...",
+    "tipo_documento": "Fattura",
     "stato": "",
     "metodo_pagamento": "...",
     "data_creazione": "YYYY-MM-DD",
@@ -176,8 +176,10 @@ async function extractDataFromText(text) {
     "utente_id": "user_1"
   }
 
-  ⚠️ IMPORTANTISSIMO: NON scrivere alcuna spiegazione. NON usare parole fuori dal JSON. Rispondi solo e unicamente con l'oggetto JSON. Se hai dubbi, scegli "spesa".
+  ⚠️ Rispondi solo con un oggetto JSON valido. Non scrivere spiegazioni. Non includere testo aggiuntivo. Nessun preambolo. Nessun commento.
+  Se hai dubbi, scegli “spesa”.
   `;
+
 
 
   const completion = await openai.chat.completions.create({
