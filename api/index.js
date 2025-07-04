@@ -88,6 +88,48 @@ async function transcribeAudio(file) {
   });
 }
 
+function normalizeFields(data) {
+  const normalize = (value) => value?.toLowerCase()?.trim();
+
+  const metodoPagamentoMap = {
+    'contanti': 'Contanti',
+    'cash': 'Contanti',
+    'bancomat': 'POS',
+    'pos': 'POS',
+    'carta': 'Carta di Credito',
+    'carta di credito': 'Carta di Credito',
+    'bonifico': 'Bonifico'
+  };
+
+  const tipoDocumentoMap = {
+    'fattura': 'Fattura',
+    'documento di trasporto': 'Documento di Trasporto',
+    'ddt': 'Documento di Trasporto'
+  };
+
+  const tipoPagamentoMap = {
+    'fine mese': 'Fine mese',
+    'immediato': 'Immediato',
+    '30 giorni': '30 giorni',
+    'a vista': 'A vista'
+  };
+
+  if (data.metodo_pagamento)
+    data.metodo_pagamento = metodoPagamentoMap[normalize(data.metodo_pagamento)] || data.metodo_pagamento;
+
+  if (data.tipo_documento)
+    data.tipo_documento = tipoDocumentoMap[normalize(data.tipo_documento)] || data.tipo_documento;
+
+  if (data.tipo_pagamento)
+    data.tipo_pagamento = tipoPagamentoMap[normalize(data.tipo_pagamento)] || data.tipo_pagamento;
+
+  if (data.metodo_incasso)
+    data.metodo_incasso = metodoPagamentoMap[normalize(data.metodo_incasso)] || data.metodo_incasso;
+
+  return data;
+}
+
+
 /* === Parsing con OpenAI === */
 async function extractDataFromText(text) {
   const prompt = `
@@ -95,9 +137,9 @@ async function extractDataFromText(text) {
 
   "${text}"
 
-  Devi capire con certezza se si tratta di una **spesa** (es: fattura, pagamento, acquisto) oppure di un **incasso** (es: incasso giornaliero, entrata di cassa, somma ricevuta).
+  Devi capire con certezza se si tratta di una **spesa** oppure di un **incasso**.
 
-  🔹 Se è una **spesa**, l'utente sta comunicando una fattura o pagamento effettuato. In tal caso, restituisci solo un oggetto JSON con questi campi:
+  🔹 Se è una **spesa**, restituisci:
   {
     tipo: "spesa",
     numero_fattura: "...",
@@ -114,7 +156,7 @@ async function extractDataFromText(text) {
     utente_id: "user_1"
   }
 
-  🔹 Se è un **incasso**, l'utente sta dichiarando un'entrata economica (es: "incasso del giorno", "ricevuto pagamento", "entrata giornaliera"). In tal caso, restituisci solo un oggetto JSON con questi campi:
+  🔹 Se è un **incasso**, restituisci:
   {
     tipo: "incasso",
     data_incasso: "YYYY-MM-DD",
@@ -125,9 +167,7 @@ async function extractDataFromText(text) {
     utente_id: "user_1"
   }
 
-  ⚠️ ATTENZIONE: 
-  - Rispondi **esclusivamente** con un singolo oggetto JSON valido, senza testo extra.
-  - Se hai anche il minimo dubbio, preferisci la classificazione come "spesa".
+  ⚠️ Rispondi **solo** con JSON valido. Se hai dubbi, scegli "spesa".
   `;
 
   const completion = await openai.chat.completions.create({
@@ -140,13 +180,16 @@ async function extractDataFromText(text) {
   });
 
   const response = completion.choices[0].message.content;
+
   try {
-    return JSON.parse(response);
+    const raw = JSON.parse(response);
+    return normalizeFields(raw);
   } catch (err) {
     console.error("❌ Errore parsing JSON:", err);
     throw new Error("Parsing JSON fallito.");
   }
 }
+
 
 
 /* === Upload Audio === */
