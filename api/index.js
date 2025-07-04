@@ -117,8 +117,8 @@ app.get('/companies', async (req, res) => {
     const result = await db.query(`
       SELECT c.id, c.nome
       FROM companies c
-      JOIN user_companies uc ON uc.azienda_id = c.id
-      WHERE uc.utente_id = $1
+      JOIN user_companies uc ON uc.azienda_id = c.id::text
+      WHERE uc.utente_id = $1::text
     `, [userId]);
 
     res.json(result.rows);
@@ -127,8 +127,6 @@ app.get('/companies', async (req, res) => {
     res.status(500).json({ error: 'Errore interno nel recupero aziende' });
   }
 });
-
-
 
 
 
