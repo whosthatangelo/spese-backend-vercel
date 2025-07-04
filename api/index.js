@@ -91,6 +91,8 @@ async function transcribeAudio(file) {
 function normalizeFields(data) {
   const normalize = (value) => value?.toLowerCase()?.trim();
 
+  const isValidDate = (str) => /^\d{4}-\d{2}-\d{2}$/.test(str);
+  
   const metodoPagamentoMap = {
     'contanti': 'Contanti',
     'cash': 'Contanti',
@@ -126,6 +128,13 @@ function normalizeFields(data) {
   if (data.metodo_incasso)
     data.metodo_incasso = metodoPagamentoMap[normalize(data.metodo_incasso)] || data.metodo_incasso;
 
+  if (data.data_fattura && !isValidDate(data.data_fattura)) {
+    throw new Error(`Formato data_fattura non valido: ${data.data_fattura}`);
+  }
+  if (data.data_incasso && !isValidDate(data.data_incasso)) {
+    throw new Error(`Formato data_incasso non valido: ${data.data_incasso}`);
+  }
+  
   return data;
 }
 
@@ -143,7 +152,7 @@ async function extractDataFromText(text) {
   {
     tipo: "spesa",
     numero_fattura: "...",
-    data_fattura: "YYYY-MM-DD",
+    data_fattura: data in formato "YYYY-MM-DD" (es: "2025-07-04"), anche se l'utente dice "oggi", "ieri", ecc.
     importo: ...,
     valuta: "EUR",
     azienda: "...",
@@ -159,7 +168,7 @@ async function extractDataFromText(text) {
   🔹 Se è un **incasso**, restituisci:
   {
     tipo: "incasso",
-    data_incasso: "YYYY-MM-DD",
+    data_incasso: data in formato "YYYY-MM-DD" (es: "2025-07-04"), anche se l'utente dice "oggi", "ieri", ecc.
     importo: ...,
     valuta: "EUR",
     metodo_incasso: "...",
