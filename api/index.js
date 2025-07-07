@@ -186,25 +186,65 @@ async function transcribeAudio(file) {
 
 // ===== VERSIONE MIGLIORATA DI normalizeFields =====
 
+// ===== VERSIONE CORRETTA DI normalizeFields =====
+
 function normalizeFields(data) {
   const normalize = (value) => value?.toLowerCase()?.trim();
   const isValidDate = (str) => /^\d{4}-\d{2}-\d{2}$/.test(str);
 
-  // ✨ Mappa parole tipo "oggi" in vere date
+  // ✨ Mappa parole tipo "oggi" in vere date - VERSIONE MIGLIORATA
   const parseNaturalDate = (value) => {
+    if (!value) return value;
+
+    // Normalizza il valore prima di controllare
+    const normalizedValue = normalize(value);
     const today = new Date();
-    if (value === "oggi") return today.toISOString().split("T")[0];
-    if (value === "ieri") {
+
+    // Controlla se contiene parole chiave (non solo uguaglianza esatta)
+    if (normalizedValue.includes("oggi") || normalizedValue.includes("di oggi")) {
+      return today.toISOString().split("T")[0];
+    }
+    if (normalizedValue.includes("ieri") || normalizedValue.includes("di ieri")) {
       const d = new Date(today);
       d.setDate(today.getDate() - 1);
       return d.toISOString().split("T")[0];
     }
-    if (value === "domani") {
+    if (normalizedValue.includes("domani") || normalizedValue.includes("di domani")) {
       const d = new Date(today);
       d.setDate(today.getDate() + 1);
       return d.toISOString().split("T")[0];
     }
-    return value;
+
+    // Se è già una data valida, restituiscila com'è
+    if (isValidDate(normalizedValue)) {
+      return normalizedValue;
+    }
+
+    // Prova a parsare altre espressioni di date comuni in italiano
+    const datePatterns = [
+      // "7 luglio" -> "2025-07-07"
+      /(\d{1,2})\s+(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)/i,
+      // "del 7 luglio" -> "2025-07-07"
+      /del\s+(\d{1,2})\s+(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)/i
+    ];
+
+    const months = {
+      'gennaio': '01', 'febbraio': '02', 'marzo': '03', 'aprile': '04',
+      'maggio': '05', 'giugno': '06', 'luglio': '07', 'agosto': '08',
+      'settembre': '09', 'ottobre': '10', 'novembre': '11', 'dicembre': '12'
+    };
+
+    for (const pattern of datePatterns) {
+      const match = normalizedValue.match(pattern);
+      if (match) {
+        const day = match[1].padStart(2, '0');
+        const month = months[match[2].toLowerCase()];
+        const year = today.getFullYear();
+        return `${year}-${month}-${day}`;
+      }
+    }
+
+    return value; // Se non trova pattern, restituisce il valore originale
   };
 
   const metodoPagamentoMap = {
@@ -272,23 +312,25 @@ function normalizeFields(data) {
   if (data.metodo_incasso)
     data.metodo_incasso = metodoPagamentoMap[normalize(data.metodo_incasso)] || data.metodo_incasso;
 
-  // 🗓️ Normalizza le date
+  // 🗓️ Normalizza le date con la funzione migliorata
   if (data.data_fattura) {
-    data.data_fattura = parseNaturalDate(normalize(data.data_fattura));
+    data.data_fattura = parseNaturalDate(data.data_fattura);
     if (data.data_fattura !== "non disponibile" && !isValidDate(data.data_fattura)) {
-      throw new Error(`Formato data_fattura non valido: ${data.data_fattura}`);
+      console.warn(`⚠️ Formato data_fattura non valido: ${data.data_fattura}, uso data odierna`);
+      data.data_fattura = new Date().toISOString().split("T")[0];
     }
   }
 
   if (data.data_incasso) {
-    data.data_incasso = parseNaturalDate(normalize(data.data_incasso));
+    data.data_incasso = parseNaturalDate(data.data_incasso);
     if (data.data_incasso !== "non disponibile" && !isValidDate(data.data_incasso)) {
-      throw new Error(`Formato data_incasso non valido: ${data.data_incasso}`);
+      console.warn(`⚠️ Formato data_incasso non valido: ${data.data_incasso}, uso data odierna`);
+      data.data_incasso = new Date().toISOString().split("T")[0];
     }
   }
 
   if (data.data_creazione) {
-    data.data_creazione = parseNaturalDate(normalize(data.data_creazione));
+    data.data_creazione = parseNaturalDate(data.data_creazione);
     if (!isValidDate(data.data_creazione)) {
       // fallback automatico alla data corrente se errata
       data.data_creazione = new Date().toISOString().split("T")[0];
