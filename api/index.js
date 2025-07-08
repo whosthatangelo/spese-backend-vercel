@@ -67,8 +67,6 @@ app.use((req, res, next) => {
   next();
 });
 
-
-
 /* ——————————————————————————————————————————————————————————— */
 /* 2) Middleware: verifica che user appartenga alla company */
 /* ——————————————————————————————————————————————————————————— */
@@ -103,7 +101,7 @@ app.use(
 );
 
 /* ——————————————————————————————————————————————————————————— */
-/* 3) GET /companies → lista aziende dell’utente */
+/* 3) GET /companies → lista aziende dell'utente */
 /* ——————————————————————————————————————————————————————————— */
 app.get('/companies', async (req, res) => {
   const userId = req.userId;
@@ -128,8 +126,6 @@ app.get('/companies', async (req, res) => {
   }
 });
 
-
-
 /* === LOGIN UTENTE === */
 app.post('/login', async (req, res) => {
   const { email } = req.body;
@@ -149,7 +145,6 @@ app.post('/login', async (req, res) => {
     res.status(500).json({ error: 'Errore login utente' });
   }
 });
-
 
 /* === Trascrizione vocale === */
 async function transcribeAudio(file) {
@@ -183,11 +178,7 @@ async function transcribeAudio(file) {
   });
 }
 
-
-// ===== VERSIONE MIGLIORATA DI normalizeFields =====
-
 // ===== VERSIONE CORRETTA DI normalizeFields =====
-
 function normalizeFields(data) {
   const normalize = (value) => value?.toLowerCase()?.trim();
   const isValidDate = (str) => /^\d{4}-\d{2}-\d{2}$/.test(str);
@@ -300,6 +291,26 @@ function normalizeFields(data) {
     'rate': 'Rateale'
   };
 
+  // 🔧 FIX: Gestione campi vuoti e date mancanti
+  if (data.tipo === 'spesa' && (!data.data_fattura || data.data_fattura === '')) {
+    data.data_fattura = 'oggi'; // Default per spese
+  }
+
+  if (data.tipo === 'incasso' && (!data.data_incasso || data.data_incasso === '')) {
+    data.data_incasso = 'oggi'; // Default per incassi
+  }
+
+  // 🔧 FIX: Mapping POS nei campi sbagliati
+  if (data.tipo_pagamento === 'POS' && !data.metodo_pagamento) {
+    data.metodo_pagamento = 'POS';
+    data.tipo_pagamento = '';
+  }
+
+  if (data.tipo_pagamento === 'POS' && !data.metodo_incasso && data.tipo === 'incasso') {
+    data.metodo_incasso = 'POS';
+    data.tipo_pagamento = '';
+  }
+
   if (data.metodo_pagamento)
     data.metodo_pagamento = metodoPagamentoMap[normalize(data.metodo_pagamento)] || data.metodo_pagamento;
 
@@ -340,55 +351,64 @@ function normalizeFields(data) {
   return data;
 }
 
-
-/* === Parsing con OpenAI === */
+/* === Parsing con OpenAI MIGLIORATO === */
 async function extractDataFromText(text) {
   const prompt = `
-  Hai ricevuto questo testo trascritto da un file audio:
+  Analizza questo testo trascritto da audio e determina se è una SPESA o un INCASSO:
 
   "${text}"
 
-  Devi determinare con certezza se si tratta di una **spesa** oppure di un **incasso**.
+  🔍 REGOLE DI CLASSIFICAZIONE:
+  - Se contiene: "incasso", "incassato", "ricevuto", "entrata", "guadagno" → INCASSO
+  - Se contiene: "spesa", "speso", "pagato", "acquistato", "fattura" → SPESA
+  - In caso di dubbio, analizza il contesto
 
-  🔹 Se è una **spesa**, restituisci solo questo oggetto JSON:
+  🔹 Se è una **SPESA**, restituisci:
   {
     "tipo": "spesa",
     "numero_fattura": "...",
-    "data_fattura": "YYYY-MM-DD",
-    "importo": ...,
+    "data_fattura": "oggi|ieri|domani|YYYY-MM-DD",
+    "importo": 123.45,
     "valuta": "EUR",
     "azienda": "...",
     "tipo_pagamento": "...",
     "banca": "...",
     "tipo_documento": "...",
     "stato": "",
-    "metodo_pagamento": "...",
-    "data_creazione": "YYYY-MM-DD",
+    "metodo_pagamento": "Contanti|POS|Carta di Credito|Bonifico|...",
+    "data_creazione": "oggi",
     "utente_id": "user_1"
   }
 
-  🔹 Se è un **incasso**, restituisci solo questo oggetto JSON:
+  🔹 Se è un **INCASSO**, restituisci:
   {
     "tipo": "incasso",
-    "data_incasso": "YYYY-MM-DD",
-    "importo": ...,
+    "data_incasso": "oggi|ieri|domani|YYYY-MM-DD",
+    "importo": 123.45,
     "valuta": "EUR",
-    "metodo_incasso": "...",
-    "data_creazione": "YYYY-MM-DD",
+    "metodo_incasso": "Contanti|POS|Carta di Credito|Bonifico|...",
+    "data_creazione": "oggi",
     "utente_id": "user_1"
   }
 
-  ⚠️ Rispondi solo con un oggetto JSON valido. Non scrivere spiegazioni. Non includere testo aggiuntivo. Nessun preambolo. Nessun commento.
-  Se hai dubbi, scegli “spesa”.
+  ⚠️ IMPORTANTE:
+  - Se il testo contiene "incasso" o "incassato" → tipo: "incasso"
+  - Mappa sempre POS/Bancomat → "POS"
+  - Se mancano informazioni, usa stringhe vuote
+  - Per le date usa "oggi", "ieri", "domani" quando appropriato
+  - Rispondi SOLO con JSON valido, nessun testo aggiuntivo
   `;
 
   const completion = await openai.chat.completions.create({
     model: 'gpt-4',
     messages: [
-      { role: 'system', content: 'Sei un assistente che estrae dati strutturati da testi vocali trascritti.' },
+      { 
+        role: 'system', 
+        content: 'Sei un esperto contabile che classifica spese e incassi. Analizza con attenzione le parole chiave per determinare il tipo corretto.' 
+      },
       { role: 'user', content: prompt }
     ],
-    temperature: 0.2
+    temperature: 0.1 // Più deterministico
   });
 
   const response = completion.choices[0].message.content;
@@ -402,7 +422,6 @@ async function extractDataFromText(text) {
     throw new Error("Parsing JSON fallito.");
   }
 }
-
 
 /* === Upload Audio === */
 app.post('/upload-audio', upload.single('audio'), async (req, res) => {
@@ -469,7 +488,6 @@ app.post('/upload-audio', upload.single('audio'), async (req, res) => {
   }
 });
 
-
 /* === API spese === */
 app.get('/expenses', async (req, res) => {
   try {
@@ -484,7 +502,6 @@ app.get('/expenses', async (req, res) => {
     res.status(500).json({ error: 'Errore recupero spese' });
   }
 });
-
 
 /* === API incassi === */
 app.get('/incomes', async (req, res) => {
@@ -547,7 +564,6 @@ app.put('/incomes/:id', async (req, res) => {
   }
 });
 
-
 /* === Creazione spesa via API === */
 app.post('/expenses', async (req, res) => {
   try {
@@ -586,7 +602,6 @@ app.delete('/expenses/:numero_fattura', async (req, res) => {
   }
 });
 
-
 /* === Statistiche spese === */
 app.get('/stats', async (req, res) => {
   try {
@@ -612,7 +627,6 @@ app.get('/stats', async (req, res) => {
     res.status(500).json({ error: 'Errore nel calcolo statistiche spese' });
   }
 });
-
 
 /* === Statistiche incassi === */
 app.get('/income-stats', async (req, res) => {
@@ -641,7 +655,6 @@ app.get('/income-stats', async (req, res) => {
   }
 });
 
-
 /* === Ultimi 3 incassi === */
 app.get('/latest-income', async (req, res) => {
   try {
@@ -659,7 +672,6 @@ app.get('/latest-income', async (req, res) => {
   }
 });
 
-
 /* === Ultime 3 spese === */
 app.get('/latest-expenses', async (req, res) => {
   try {
@@ -676,7 +688,6 @@ app.get('/latest-expenses', async (req, res) => {
     res.status(500).json({ error: 'Errore recupero ultime spese' });
   }
 });
-
 
 app.get('/', (req, res) => {
   res.send('✅ Backend attivo!');
