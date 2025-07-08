@@ -394,6 +394,7 @@ async function extractDataFromText(text) {
   ⚠️ IMPORTANTE:
   - Se il testo contiene "incasso" o "incassato" → tipo: "incasso"
   - Mappa sempre POS/Bancomat → "POS"
+  - NUMERI: "37 e 43" significa 37,43 (non 37+43=80)
   - Se mancano informazioni, usa stringhe vuote
   - Per le date usa "oggi", "ieri", "domani" quando appropriato
   - Rispondi SOLO con JSON valido, nessun testo aggiuntivo
