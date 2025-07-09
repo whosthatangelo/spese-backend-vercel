@@ -50,8 +50,8 @@ app.use((req, res, next) => {
     req.userId = parsedUserId;
   }
 
-  // consenti /login e /companies anche senza x-company-id
-  if (req.path === '/login' || req.path === '/companies' || req.path === '/auth/google') {
+  // consenti solo /companies e /auth/google senza x-company-id
+  if (req.path === '/companies' || req.path === '/auth/google') {
     return next();
   }
   
