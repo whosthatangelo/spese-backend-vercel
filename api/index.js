@@ -749,4 +749,34 @@ app.get('/', (req, res) => {
   res.send('✅ Backend attivo!');
 });
 
+
+/* === LOGOUT UTENTE === */
+app.post('/logout', async (req, res) => {
+  try {
+    const { userId, email } = req.body;
+
+    console.log(`🚪 Logout richiesto per userId: ${userId}, email: ${email}`);
+
+    // Aggiorna last_login nel database
+    if (userId) {
+      await db.query(
+        'UPDATE users SET last_login = NOW() WHERE id = $1',
+        [userId]
+      );
+      console.log(`✅ Last login aggiornato per userId: ${userId}`);
+    }
+
+    res.json({ 
+      message: 'Logout completato con successo',
+      timestamp: new Date().toISOString()
+    });
+
+    console.log(`🚪 Logout completato per userId: ${userId}`);
+
+  } catch (error) {
+    console.error('❌ Errore durante logout:', error);
+    res.status(500).json({ error: 'Errore durante il logout' });
+  }
+});
+
 export default app;
