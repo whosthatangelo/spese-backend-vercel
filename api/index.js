@@ -51,10 +51,10 @@ app.use((req, res, next) => {
   }
 
   // consenti /login e /companies anche senza x-company-id
-  if (req.path === '/login' || req.path === '/companies') {
+  if (req.path === '/login' || req.path === '/companies' || req.path === '/auth/google') {
     return next();
   }
-
+  
   if (!req.userId) {
     return res.status(401).json({ error: 'Utente non autenticato' });
   }
