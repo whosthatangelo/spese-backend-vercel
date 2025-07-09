@@ -126,6 +126,7 @@ app.get('/companies', async (req, res) => {
   }
 });
 
+
 /* === LOGIN UTENTE === */
 app.post('/login', async (req, res) => {
   const { email } = req.body;
@@ -143,6 +144,60 @@ app.post('/login', async (req, res) => {
   } catch (err) {
     console.error('❌ Errore login:', err);
     res.status(500).json({ error: 'Errore login utente' });
+  }
+});
+
+/* === LOGIN CON GOOGLE === */
+app.post('/auth/google', async (req, res) => {
+  try {
+    const { email, name, photoURL, uid } = req.body;
+
+    if (!email || !uid) {
+      return res.status(400).json({ error: 'Email e UID Google sono richiesti' });
+    }
+
+    console.log(`🔐 Tentativo login Google per: ${email}`);
+
+    // Controlla se l'utente esiste già
+    let userResult = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+    let user;
+
+    if (userResult.rows.length > 0) {
+      // Utente esistente: aggiorna i dati Google
+      user = userResult.rows[0];
+      await db.query(`
+        UPDATE users 
+        SET name = $1, profile_picture = $2, google_id = $3, last_login = NOW()
+        WHERE email = $4
+      `, [name || user.name, photoURL, uid, email]);
+
+      console.log(`✅ Utente esistente aggiornato: ${email}`);
+    } else {
+      // Nuovo utente: crea record
+      const insertResult = await db.query(`
+        INSERT INTO users (email, name, profile_picture, google_id, created_at, last_login)
+        VALUES ($1, $2, $3, $4, NOW(), NOW())
+        RETURNING *
+      `, [email, name || email.split('@')[0], photoURL, uid]);
+
+      user = insertResult.rows[0];
+      console.log(`✅ Nuovo utente Google creato: ${email}`);
+    }
+
+    res.json({
+      userId: user.id,
+      message: 'Login Google completato con successo',
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        photoURL: user.profile_picture
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Errore Google Auth:', error);
+    res.status(500).json({ error: 'Errore durante l\'autenticazione Google' });
   }
 });
 
