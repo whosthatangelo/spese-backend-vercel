@@ -51,7 +51,7 @@ app.use((req, res, next) => {
   }
 
   // consenti solo /companies e /auth/google senza x-company-id
-  if (req.path === '/companies' || req.path === '/auth/google') {
+  if (req.path === '/companies' || req.path === '/auth/google' || req.path === '/logout') {
     return next();
   }
   
