@@ -779,4 +779,227 @@ app.post('/logout', async (req, res) => {
   }
 });
 
+// Aggiungi questi endpoint al tuo api/index.js
+import { requirePermission, requireSuperAdmin, requireAdminAzienda, getUserPermissions } from '../middleware/auth.js';
+
+/* === GET USER PERMISSIONS === */
+app.get('/user/permissions', async (req, res) => {
+  try {
+    const { userId, companyId } = req;
+    const permissions = await getUserPermissions(userId, companyId);
+    res.json(permissions);
+  } catch (error) {
+    console.error('❌ Errore /user/permissions:', error);
+    res.status(500).json({ error: 'Errore recupero permessi' });
+  }
+});
+
+/* === GESTIONE COMPANIES (Solo Super Admin) === */
+
+// Lista tutte le companies (Super Admin)
+app.get('/admin/companies', requireSuperAdmin, async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT c.*, 
+             COUNT(uc.utente_id) as user_count,
+             u.name as admin_name, u.email as admin_email
+      FROM companies c
+      LEFT JOIN user_companies uc ON uc.azienda_id = c.id
+      LEFT JOIN users u ON u.id = (
+        SELECT uc2.utente_id FROM user_companies uc2 
+        JOIN roles r ON r.id = uc2.role_id 
+        WHERE uc2.azienda_id = c.id AND r.name = 'admin_azienda' 
+        LIMIT 1
+      )
+      GROUP BY c.id, u.name, u.email
+      ORDER BY c.nome
+    `);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('❌ Errore /admin/companies:', error);
+    res.status(500).json({ error: 'Errore recupero companies' });
+  }
+});
+
+// Crea nuova company (Super Admin)
+app.post('/admin/companies', requireSuperAdmin, async (req, res) => {
+  try {
+    const { nome, admin_email } = req.body;
+
+    if (!nome || !admin_email) {
+      return res.status(400).json({ error: 'Nome e email admin richiesti' });
+    }
+
+    // Verifica che l'admin esista
+    const adminResult = await db.query('SELECT id FROM users WHERE email = $1', [admin_email]);
+    if (adminResult.rows.length === 0) {
+      return res.status(400).json({ error: 'Admin email non trovata nel sistema' });
+    }
+
+    const adminUserId = adminResult.rows[0].id;
+
+    // Crea la company
+    const companyResult = await db.query(
+      'INSERT INTO companies (nome) VALUES ($1) RETURNING *',
+      [nome]
+    );
+    const newCompany = companyResult.rows[0];
+
+    // Assegna l'admin alla company
+    const adminRoleResult = await db.query('SELECT id FROM roles WHERE name = $1', ['admin_azienda']);
+    const adminRoleId = adminRoleResult.rows[0].id;
+
+    await db.query(
+      'INSERT INTO user_companies (utente_id, azienda_id, role_id) VALUES ($1, $2, $3)',
+      [adminUserId, newCompany.id, adminRoleId]
+    );
+
+    console.log(`✅ Company creata: ${nome} con admin ${admin_email}`);
+    res.json({ 
+      message: 'Company creata con successo',
+      company: newCompany,
+      admin: { id: adminUserId, email: admin_email }
+    });
+
+  } catch (error) {
+    console.error('❌ Errore creazione company:', error);
+    res.status(500).json({ error: 'Errore creazione company' });
+  }
+});
+
+/* === GESTIONE UTENTI AZIENDA (Admin Azienda + Super Admin) === */
+
+// Lista utenti della propria azienda
+app.get('/admin/users', requireAdminAzienda, async (req, res) => {
+  try {
+    const { companyId, userRole } = req;
+
+    // Se Super Admin, può scegliere quale company vedere
+    let targetCompanyId = companyId;
+    if (userRole === 'super_admin' && req.query.company_id) {
+      targetCompanyId = req.query.company_id;
+    }
+
+    const result = await db.query(`
+      SELECT u.id, u.email, u.name, u.profile_picture, u.created_at, u.last_login,
+             r.name as role_name, uc.role_id
+      FROM users u
+      JOIN user_companies uc ON uc.utente_id = u.id
+      JOIN roles r ON r.id = uc.role_id
+      WHERE uc.azienda_id = $1
+      ORDER BY r.id ASC, u.name ASC
+    `, [targetCompanyId]);
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('❌ Errore /admin/users:', error);
+    res.status(500).json({ error: 'Errore recupero utenti' });
+  }
+});
+
+// Invita nuovo utente (Admin Azienda + Super Admin)
+app.post('/admin/users/invite', requireAdminAzienda, async (req, res) => {
+  try {
+    const { email, role_name } = req.body;
+    const { companyId } = req;
+
+    if (!email || !role_name) {
+      return res.status(400).json({ error: 'Email e ruolo richiesti' });
+    }
+
+    // Verifica che il ruolo esista e sia assegnabile
+    const roleResult = await db.query('SELECT id FROM roles WHERE name = $1', [role_name]);
+    if (roleResult.rows.length === 0) {
+      return res.status(400).json({ error: 'Ruolo non valido' });
+    }
+
+    // Verifica che l'utente esista nel sistema
+    const userResult = await db.query('SELECT id FROM users WHERE email = $1', [email]);
+    if (userResult.rows.length === 0) {
+      return res.status(400).json({ error: 'Utente non trovato. Deve prima registrarsi con Google.' });
+    }
+
+    const userId = userResult.rows[0].id;
+    const roleId = roleResult.rows[0].id;
+
+    // Verifica che non sia già nella company
+    const existingResult = await db.query(
+      'SELECT 1 FROM user_companies WHERE utente_id = $1 AND azienda_id = $2',
+      [userId, companyId]
+    );
+
+    if (existingResult.rows.length > 0) {
+      return res.status(400).json({ error: 'Utente già presente in questa azienda' });
+    }
+
+    // Aggiungi utente alla company
+    await db.query(
+      'INSERT INTO user_companies (utente_id, azienda_id, role_id) VALUES ($1, $2, $3)',
+      [userId, companyId, roleId]
+    );
+
+    console.log(`✅ Utente invitato: ${email} come ${role_name} in company ${companyId}`);
+    res.json({ 
+      message: 'Utente invitato con successo',
+      user: { email, role: role_name }
+    });
+
+  } catch (error) {
+    console.error('❌ Errore invito utente:', error);
+    res.status(500).json({ error: 'Errore invito utente' });
+  }
+});
+
+// Cambia ruolo utente (Admin Azienda + Super Admin)
+app.put('/admin/users/:userId/role', requireAdminAzienda, async (req, res) => {
+  try {
+    const { userId: targetUserId } = req.params;
+    const { role_name } = req.body;
+    const { companyId } = req;
+
+    if (!role_name) {
+      return res.status(400).json({ error: 'Nuovo ruolo richiesto' });
+    }
+
+    // Verifica che il ruolo esista
+    const roleResult = await db.query('SELECT id FROM roles WHERE name = $1', [role_name]);
+    if (roleResult.rows.length === 0) {
+      return res.status(400).json({ error: 'Ruolo non valido' });
+    }
+
+    const roleId = roleResult.rows[0].id;
+
+    // Aggiorna il ruolo
+    const updateResult = await db.query(
+      'UPDATE user_companies SET role_id = $1 WHERE utente_id = $2 AND azienda_id = $3 RETURNING *',
+      [roleId, targetUserId, companyId]
+    );
+
+    if (updateResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Utente non trovato in questa azienda' });
+    }
+
+    console.log(`✅ Ruolo aggiornato: user ${targetUserId} ora è ${role_name}`);
+    res.json({ 
+      message: 'Ruolo aggiornato con successo',
+      updated: updateResult.rows[0]
+    });
+
+  } catch (error) {
+    console.error('❌ Errore cambio ruolo:', error);
+    res.status(500).json({ error: 'Errore cambio ruolo' });
+  }
+});
+
+// Lista ruoli disponibili
+app.get('/admin/roles', requireAdminAzienda, async (req, res) => {
+  try {
+    const result = await db.query('SELECT id, name FROM roles ORDER BY id');
+    res.json(result.rows);
+  } catch (error) {
+    console.error('❌ Errore /admin/roles:', error);
+    res.status(500).json({ error: 'Errore recupero ruoli' });
+  }
+});
+
 export default app;
