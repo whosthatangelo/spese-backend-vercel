@@ -1139,4 +1139,133 @@ app.get('/admin/roles', requireAdminAzienda, async (req, res) => {
   }
 });
 
+
+// 🔧 AGGIUNGI QUESTO ENDPOINT TEMPORANEO al backend/api/index.js
+
+app.get('/setup-database', async (req, res) => {
+  try {
+    console.log('🔧 Iniziando setup database...');
+
+    // 1. Crea tabella roles se non esiste
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS roles (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(50) UNIQUE NOT NULL,
+        permissions JSONB NOT NULL DEFAULT '{}'
+      )
+    `);
+
+    // 2. Crea tabella companies se non esiste
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS companies (
+        id SERIAL PRIMARY KEY,
+        nome VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // 3. Crea tabella user_companies se non esiste
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS user_companies (
+        id SERIAL PRIMARY KEY,
+        utente_id TEXT NOT NULL,
+        azienda_id TEXT NOT NULL,
+        role_id INTEGER REFERENCES roles(id),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(utente_id, azienda_id)
+      )
+    `);
+
+    // 4. Inserisci ruoli
+    const roles = [
+      {
+        name: 'super_admin',
+        permissions: {
+          "companies": {"create": true, "read": true, "update": true, "delete": true, "scope": "global"},
+          "users": {"create": true, "read": true, "update": true, "delete": true, "assign_roles": true, "scope": "global"},
+          "expenses": {"create": true, "read": true, "update": true, "delete": true, "scope": "global"},
+          "incomes": {"create": true, "read": true, "update": true, "delete": true, "scope": "global"},
+          "admin": {"full_access": true}
+        }
+      },
+      {
+        name: 'admin_azienda',
+        permissions: {
+          "users": {"create": true, "read": true, "update": true, "delete": true, "assign_roles": true, "scope": "company"},
+          "expenses": {"create": true, "read": true, "update": true, "delete": true, "scope": "company"},
+          "incomes": {"create": true, "read": true, "update": true, "delete": true, "scope": "company"},
+          "admin": {"company_level": true}
+        }
+      },
+      {
+        name: 'user',
+        permissions: {
+          "expenses": {"create": true, "read": true, "update": true, "delete": true, "scope": "own"},
+          "incomes": {"create": true, "read": true, "update": true, "delete": true, "scope": "own"}
+        }
+      }
+    ];
+
+    for (const role of roles) {
+      await db.query(`
+        INSERT INTO roles (name, permissions) VALUES ($1, $2)
+        ON CONFLICT (name) DO UPDATE SET permissions = $2
+      `, [role.name, JSON.stringify(role.permissions)]);
+    }
+
+    // 5. Trova utente iamangeloiaia@gmail.com
+    const userResult = await db.query(
+      'SELECT id FROM users WHERE email = $1',
+      ['iamangeloiaia@gmail.com']
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.json({ 
+        error: 'Utente iamangeloiaia@gmail.com non trovato',
+        message: 'Devi prima fare login con Google'
+      });
+    }
+
+    const userId = userResult.rows[0].id;
+
+    // 6. Crea company principale
+    await db.query(`
+      INSERT INTO companies (id, nome) VALUES (1, 'Main Company')
+      ON CONFLICT (id) DO NOTHING
+    `);
+
+    // 7. Assegna come super admin
+    await db.query(`
+      INSERT INTO user_companies (utente_id, azienda_id, role_id)
+      VALUES ($1, '1', (SELECT id FROM roles WHERE name = 'super_admin'))
+      ON CONFLICT (utente_id, azienda_id) 
+      DO UPDATE SET role_id = (SELECT id FROM roles WHERE name = 'super_admin')
+    `, [userId]);
+
+    // 8. Verifica risultato
+    const verifyResult = await db.query(`
+      SELECT u.email, r.name as role_name, c.nome as company_name
+      FROM users u
+      JOIN user_companies uc ON uc.utente_id = u.id::text
+      JOIN companies c ON c.id = uc.azienda_id::integer
+      JOIN roles r ON r.id = uc.role_id
+      WHERE u.email = 'iamangeloiaia@gmail.com'
+    `);
+
+    res.json({
+      success: true,
+      message: 'Database setup completato!',
+      user: verifyResult.rows[0] || 'Nessun risultato',
+      userId: userId
+    });
+
+  } catch (error) {
+    console.error('❌ Errore setup database:', error);
+    res.status(500).json({ 
+      error: error.message,
+      stack: error.stack 
+    });
+  }
+});
+
 export default app;
