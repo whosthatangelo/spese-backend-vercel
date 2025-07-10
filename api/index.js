@@ -1282,4 +1282,31 @@ app.get('/setup-database', async (req, res) => {
   }
 });
 
+// Aggiungi questo in backend/api/index.js
+app.get('/debug/permissions/:userId/:companyId', async (req, res) => {
+  try {
+    const { userId, companyId } = req.params;
+
+    console.log(`🔍 Debug - userId: ${userId}, companyId: ${companyId}`);
+
+    // Test query diretta
+    const result = await db.query(`
+      SELECT uc.*, r.name as role_name, r.permissions, u.email
+      FROM user_companies uc
+      JOIN roles r ON r.id = uc.role_id
+      JOIN users u ON u.id = uc.utente_id::integer
+      WHERE uc.utente_id = $1 AND uc.azienda_id = $2
+    `, [userId, companyId]);
+
+    res.json({
+      query: `userId=${userId}, companyId=${companyId}`,
+      results: result.rows,
+      rowCount: result.rowCount
+    });
+
+  } catch (error) {
+    res.json({ error: error.message });
+  }
+});
+
 export default app;
