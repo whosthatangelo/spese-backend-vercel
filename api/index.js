@@ -1144,6 +1144,8 @@ app.get('/admin/roles', requireAdminAzienda, async (req, res) => {
 
 // 🔧 AGGIUNGI QUESTO ENDPOINT TEMPORANEO al backend/api/index.js
 
+// 🔧 SOSTITUISCI l'endpoint /setup-database con questa versione corretta
+
 app.get('/setup-database', async (req, res) => {
   try {
     console.log('🔧 Iniziando setup database...');
@@ -1230,23 +1232,32 @@ app.get('/setup-database', async (req, res) => {
 
     const userId = userResult.rows[0].id;
 
-    // 6. Crea company principale
-    await db.query(`
-      INSERT INTO companies (id, nome) VALUES (1, 'Main Company')
-      ON CONFLICT (id) DO NOTHING
+    // 6. Crea company principale (senza ON CONFLICT su ID)
+    const companyResult = await db.query(`
+      SELECT id FROM companies WHERE nome = 'Main Company'
     `);
+
+    let companyId;
+    if (companyResult.rows.length === 0) {
+      const insertResult = await db.query(`
+        INSERT INTO companies (nome) VALUES ('Main Company') RETURNING id
+      `);
+      companyId = insertResult.rows[0].id;
+    } else {
+      companyId = companyResult.rows[0].id;
+    }
 
     // 7. Assegna come super admin
     await db.query(`
       INSERT INTO user_companies (utente_id, azienda_id, role_id)
-      VALUES ($1, '1', (SELECT id FROM roles WHERE name = 'super_admin'))
+      VALUES ($1, $2, (SELECT id FROM roles WHERE name = 'super_admin'))
       ON CONFLICT (utente_id, azienda_id) 
       DO UPDATE SET role_id = (SELECT id FROM roles WHERE name = 'super_admin')
-    `, [userId]);
+    `, [userId, companyId.toString()]);
 
     // 8. Verifica risultato
     const verifyResult = await db.query(`
-      SELECT u.email, r.name as role_name, c.nome as company_name
+      SELECT u.email, r.name as role_name, c.nome as company_name, c.id as company_id
       FROM users u
       JOIN user_companies uc ON uc.utente_id = u.id::text
       JOIN companies c ON c.id = uc.azienda_id::integer
@@ -1258,7 +1269,8 @@ app.get('/setup-database', async (req, res) => {
       success: true,
       message: 'Database setup completato!',
       user: verifyResult.rows[0] || 'Nessun risultato',
-      userId: userId
+      userId: userId,
+      companyId: companyId
     });
 
   } catch (error) {
