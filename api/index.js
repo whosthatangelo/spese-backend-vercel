@@ -1362,4 +1362,32 @@ app.get('/debug/headers', async (req, res) => {
   });
 });
 
+// Aggiungi questo endpoint temporaneo
+app.get('/debug/super-admin-check', async (req, res) => {
+  try {
+    const userId = req.header('x-user-id');
+
+    if (!userId) {
+      return res.json({ error: 'Nessun userId negli header' });
+    }
+
+    // Verifica se l'utente è super admin
+    const roleQuery = await db.query(`
+      SELECT r.name, r.permissions, uc.azienda_id
+      FROM user_companies uc
+      JOIN roles r ON r.id = uc.role_id
+      WHERE uc.utente_id = $1
+    `, [userId]);
+
+    res.json({
+      userId,
+      allRoles: roleQuery.rows,
+      isSuperAdmin: roleQuery.rows.some(r => r.name === 'super_admin')
+    });
+
+  } catch (error) {
+    res.json({ error: error.message });
+  }
+});
+
 export default app;
