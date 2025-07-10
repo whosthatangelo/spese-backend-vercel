@@ -55,7 +55,7 @@ app.use((req, res, next) => {
   // ✅ AGGIUNTO /user/status alla lista delle rotte che non richiedono company
   if (req.path === '/companies' || req.path === '/auth/google' || req.path === '/logout' || 
       req.path.startsWith('/admin/') || req.path === '/user/permissions' || req.path === '/user/status' || 
-      req.path === '/setup-database' || req.path.startsWith('/debug/') || req.path === '/fix-permissions') {
+      req.path === '/setup-database' || req.path.startsWith('/debug/') || req.path === '//fix-user-company3' || req.path === '/fix-permissions') {
     return next();
   }
   
@@ -1322,6 +1322,23 @@ app.get('/fix-permissions', async (req, res) => {
     })]);
 
     res.json({ success: true, message: 'Permessi aggiornati!' });
+  } catch (error) {
+    res.json({ error: error.message });
+  }
+});
+
+
+// Aggiungi endpoint nel backend
+app.get('/fix-user-company3', async (req, res) => {
+  try {
+    await db.query(`
+      INSERT INTO user_companies (utente_id, azienda_id, role_id)
+      VALUES ('1', '3', (SELECT id FROM roles WHERE name = 'super_admin'))
+      ON CONFLICT (utente_id, azienda_id) 
+      DO UPDATE SET role_id = (SELECT id FROM roles WHERE name = 'super_admin')
+    `);
+
+    res.json({ success: true, message: 'Utente aggiunto come super_admin per company 3!' });
   } catch (error) {
     res.json({ error: error.message });
   }
