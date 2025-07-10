@@ -52,9 +52,9 @@ app.use((req, res, next) => {
     req.userId = parsedUserId;
   }
 
-  // consenti solo /companies e /auth/google senza x-company-id
+  // ✅ AGGIUNTO /user/status alla lista delle rotte che non richiedono company
   if (req.path === '/companies' || req.path === '/auth/google' || req.path === '/logout' || 
-      req.path.startsWith('/admin/') || req.path === '/user/permissions') {
+      req.path.startsWith('/admin/') || req.path === '/user/permissions' || req.path === '/user/status') {
     return next();
   }
   
@@ -863,11 +863,71 @@ app.post('/logout', async (req, res) => {
 app.get('/user/permissions', async (req, res) => {
   try {
     const { userId, companyId } = req;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Utente non autenticato' });
+    }
+
+    // Se non ha company selezionata, restituisci permessi vuoti
+    if (!companyId) {
+      return res.json({ 
+        role: 'none', 
+        permissions: {},
+        needsCompanySelection: true 
+      });
+    }
+
     const permissions = await getUserPermissions(userId, companyId);
     res.json(permissions);
   } catch (error) {
     console.error('❌ Errore /user/permissions:', error);
     res.status(500).json({ error: 'Errore recupero permessi' });
+  }
+});
+
+// 3️⃣ AGGIUNGI questo nuovo endpoint DOPO l'endpoint /user/permissions:
+app.get('/user/status', async (req, res) => {
+  try {
+    const { userId } = req;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Utente non autenticato' });
+    }
+
+    // Verifica se l'utente esiste
+    const userResult = await db.query('SELECT * FROM users WHERE id = $1', [userId]);
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Utente non trovato' });
+    }
+
+    const user = userResult.rows[0];
+
+    // Verifica se l'utente ha companies
+    const companiesResult = await db.query(`
+      SELECT c.id, c.nome, r.name as role_name
+      FROM companies c
+      JOIN user_companies uc ON uc.azienda_id = c.id::text
+      JOIN roles r ON r.id = uc.role_id
+      WHERE uc.utente_id = $1::text
+    `, [userId]);
+
+    const hasCompanies = companiesResult.rows.length > 0;
+
+    res.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        profile_picture: user.profile_picture
+      },
+      hasCompanies,
+      companies: companiesResult.rows,
+      needsCompanyAssignment: !hasCompanies
+    });
+
+  } catch (error) {
+    console.error('❌ Errore /user/status:', error);
+    res.status(500).json({ error: 'Errore recupero stato utente' });
   }
 });
 
