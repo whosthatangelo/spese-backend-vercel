@@ -1326,4 +1326,15 @@ app.get('/fix-user-company3', async (req, res) => {
   }
 });
 
+// Aggiungi in backend/api/index.js
+app.get('/debug/headers', async (req, res) => {
+  res.json({
+    'x-user-id': req.header('x-user-id'),
+    'x-company-id': req.header('x-company-id'),
+    userId: req.userId,
+    companyId: req.companyId,
+    allHeaders: req.headers
+  });
+});
+
 export default app;
