@@ -18,6 +18,8 @@ import {
 } from '../db.js';
 
 import pg from 'pg';
+// Aggiungi questi endpoint al tuo api/index.js
+import { requirePermission, requireSuperAdmin, requireAdminAzienda, getUserPermissions } from '../middleware/auth.js';
 const db = new pg.Pool({ connectionString: process.env.POSTGRES_URL });
 
 const openai = new OpenAI({
@@ -51,7 +53,8 @@ app.use((req, res, next) => {
   }
 
   // consenti solo /companies e /auth/google senza x-company-id
-  if (req.path === '/companies' || req.path === '/auth/google' || req.path === '/logout') {
+  if (req.path === '/companies' || req.path === '/auth/google' || req.path === '/logout' || 
+      req.path.startsWith('/admin/') || req.path === '/user/permissions') {
     return next();
   }
   
@@ -480,7 +483,7 @@ async function extractDataFromText(text) {
 }
 
 /* === Upload Audio === */
-app.post('/upload-audio', upload.single('audio'), async (req, res) => {
+app.post('/upload-audio', requirePermission('expenses', 'create'), upload.single('audio'), async (req, res) => {
   try {
     if (!req.file || !req.file.mimetype || req.file.size === 0) {
       return res.status(400).json({ error: 'File audio mancante o non valido.', spesa: null });
@@ -495,10 +498,10 @@ app.post('/upload-audio', upload.single('audio'), async (req, res) => {
     console.log("📦 Dati estratti:", parsedData);
 
     if (parsedData.tipo === 'spesa') {
-      // inserimento con azienda_id
       const doc = {
         ...parsedData,
         azienda_id: req.companyId,
+        utente_id: req.userId, // Assegna automaticamente l'utente
         data_creazione: new Date().toISOString()
       };
       await saveDocumento(doc);
@@ -508,7 +511,6 @@ app.post('/upload-audio', upload.single('audio'), async (req, res) => {
       });
 
     } else if (parsedData.tipo === 'incasso') {
-      // inserimento con azienda_id
       await db.query(
         `INSERT INTO incomes
            (data_incasso, importo, valuta, metodo_incasso, data_creazione, utente_id, azienda_id)
@@ -519,7 +521,7 @@ app.post('/upload-audio', upload.single('audio'), async (req, res) => {
           parsedData.valuta,
           parsedData.metodo_incasso,
           new Date().toISOString(),
-          parsedData.utente_id,
+          req.userId, // Assegna automaticamente l'utente
           req.companyId
         ]
       );
@@ -545,13 +547,24 @@ app.post('/upload-audio', upload.single('audio'), async (req, res) => {
 });
 
 /* === API spese === */
-app.get('/expenses', async (req, res) => {
+app.get('/expenses', requirePermission('expenses', 'read'), async (req, res) => {
   try {
-    const { companyId } = req;
-    const result = await db.query(
-      'SELECT * FROM documents WHERE azienda_id = $1 ORDER BY data_creazione DESC',
-      [companyId]
-    );
+    const { companyId, userId, userRole, userPermissions } = req;
+
+    let query = 'SELECT * FROM documents WHERE azienda_id = $1';
+    let params = [companyId];
+
+    // Se l'utente può vedere solo le proprie spese
+    if (userPermissions.expenses?.scope === 'own') {
+      query += ' AND utente_id = $2';
+      params.push(userId);
+    }
+
+    query += ' ORDER BY data_creazione DESC';
+
+    const result = await db.query(query, params);
+
+    console.log(`📊 Spese caricate per ${userRole}: ${result.rows.length} risultati`);
     res.json(result.rows);
   } catch (err) {
     console.error('❌ Errore /expenses:', err);
@@ -560,13 +573,24 @@ app.get('/expenses', async (req, res) => {
 });
 
 /* === API incassi === */
-app.get('/incomes', async (req, res) => {
+app.get('/incomes', requirePermission('incomes', 'read'), async (req, res) => {
   try {
-    const { companyId } = req;
-    const result = await db.query(
-      'SELECT * FROM incomes WHERE azienda_id = $1 ORDER BY data_incasso DESC',
-      [companyId]
-    );
+    const { companyId, userId, userRole, userPermissions } = req;
+
+    let query = 'SELECT * FROM incomes WHERE azienda_id = $1';
+    let params = [companyId];
+
+    // Se l'utente può vedere solo i propri incassi
+    if (userPermissions.incomes?.scope === 'own') {
+      query += ' AND utente_id = $2';
+      params.push(userId);
+    }
+
+    query += ' ORDER BY data_incasso DESC';
+
+    const result = await db.query(query, params);
+
+    console.log(`💰 Incassi caricati per ${userRole}: ${result.rows.length} risultati`);
     res.json(result.rows);
   } catch (err) {
     console.error('❌ Errore /incomes:', err);
@@ -575,14 +599,25 @@ app.get('/incomes', async (req, res) => {
 });
 
 // 🗑️ Elimina un incasso
-app.delete('/incomes/:id', async (req, res) => {
+// 🗑️ Elimina un incasso PROTETTO
+app.delete('/incomes/:id', requirePermission('incomes', 'delete'), async (req, res) => {
   try {
-    const { companyId } = req;
+    const { companyId, userId, userPermissions } = req;
     const id = req.params.id;
-    const result = await db.query(
-      'DELETE FROM incomes WHERE id = $1 AND azienda_id = $2 RETURNING *',
-      [id, companyId]
-    );
+
+    let query = 'DELETE FROM incomes WHERE id = $1 AND azienda_id = $2';
+    let params = [id, companyId];
+
+    // Se può eliminare solo i propri incassi
+    if (userPermissions.incomes?.scope === 'own') {
+      query += ' AND utente_id = $3';
+      params.push(userId);
+    }
+
+    query += ' RETURNING *';
+
+    const result = await db.query(query, params);
+
     if (!result.rowCount) {
       return res.status(404).json({ error: 'Incasso non trovato o non autorizzato' });
     }
@@ -593,23 +628,32 @@ app.delete('/incomes/:id', async (req, res) => {
   }
 });
 
-// ✏️ Modifica un incasso
-app.put('/incomes/:id', async (req, res) => {
+// ✏️ Modifica un incasso PROTETTO
+app.put('/incomes/:id', requirePermission('incomes', 'update'), async (req, res) => {
   try {
-    const { companyId } = req;
+    const { companyId, userId, userPermissions } = req;
     const { data_incasso, importo, valuta, metodo_incasso, utente_id } = req.body;
-    const result = await db.query(
-      `UPDATE incomes SET 
-        data_incasso = $1,
-        importo      = $2,
-        valuta       = $3,
-        metodo_incasso = $4,
-        utente_id    = $5,
-        updated_at   = CURRENT_TIMESTAMP
-       WHERE id = $6 AND azienda_id = $7
-       RETURNING *`,
-      [data_incasso, importo, valuta, metodo_incasso, utente_id, req.params.id, companyId]
-    );
+
+    let query = `UPDATE incomes SET 
+      data_incasso = $1,
+      importo      = $2,
+      valuta       = $3,
+      metodo_incasso = $4,
+      utente_id    = $5,
+      updated_at   = CURRENT_TIMESTAMP
+     WHERE id = $6 AND azienda_id = $7`;
+    let params = [data_incasso, importo, valuta, metodo_incasso, utente_id, req.params.id, companyId];
+
+    // Se può modificare solo i propri incassi
+    if (userPermissions.incomes?.scope === 'own') {
+      query += ' AND utente_id = $8';
+      params.push(userId);
+    }
+
+    query += ' RETURNING *';
+
+    const result = await db.query(query, params);
+
     if (!result.rowCount) {
       return res.status(404).json({ error: 'Incasso non trovato o non autorizzato' });
     }
@@ -620,12 +664,13 @@ app.put('/incomes/:id', async (req, res) => {
   }
 });
 
-/* === Creazione spesa via API === */
-app.post('/expenses', async (req, res) => {
+/* === Creazione spesa via API PROTETTA === */
+app.post('/expenses', requirePermission('expenses', 'create'), async (req, res) => {
   try {
     const doc = {
       ...req.body,
       azienda_id: req.companyId,
+      utente_id: req.userId, // Assegna automaticamente l'utente che crea
       data_creazione: new Date().toISOString()
     };
     await saveDocumento(doc);
@@ -636,10 +681,28 @@ app.post('/expenses', async (req, res) => {
   }
 });
 
-// ✏️ Modifica spesa
-app.put('/expenses/:numero_fattura', async (req, res) => {
+// ✏️ Modifica spesa PROTETTA
+app.put('/expenses/:numero_fattura', requirePermission('expenses', 'update'), async (req, res) => {
   try {
-    await updateSpesa(req.params.numero_fattura, req.body);
+    const { userPermissions, userId, companyId } = req;
+
+    // Se può modificare solo le proprie spese, controlla ownership
+    if (userPermissions.expenses?.scope === 'own') {
+      const checkOwnership = await db.query(
+        'SELECT utente_id FROM documents WHERE numero_fattura = $1 AND azienda_id = $2',
+        [req.params.numero_fattura, companyId]
+      );
+
+      if (checkOwnership.rows.length === 0 || 
+          checkOwnership.rows[0].utente_id !== userId.toString()) {
+        return res.status(403).json({ error: 'Non puoi modificare questa spesa' });
+      }
+    }
+
+    await updateSpesa(req.params.numero_fattura, {
+      ...req.body,
+      azienda_id: companyId
+    });
     res.json({ message: 'Spesa modificata' });
   } catch (err) {
     console.error('❌ Errore modifica spesa:', err);
@@ -647,10 +710,25 @@ app.put('/expenses/:numero_fattura', async (req, res) => {
   }
 });
 
-// 🗑️ Elimina spesa
-app.delete('/expenses/:numero_fattura', async (req, res) => {
+// 🗑️ Elimina spesa PROTETTA
+app.delete('/expenses/:numero_fattura', requirePermission('expenses', 'delete'), async (req, res) => {
   try {
-    await deleteSpesa(req.params.numero_fattura);
+    const { userPermissions, userId, companyId } = req;
+
+    // Se può eliminare solo le proprie spese, controlla ownership
+    if (userPermissions.expenses?.scope === 'own') {
+      const checkOwnership = await db.query(
+        'SELECT utente_id FROM documents WHERE numero_fattura = $1 AND azienda_id = $2',
+        [req.params.numero_fattura, companyId]
+      );
+
+      if (checkOwnership.rows.length === 0 || 
+          checkOwnership.rows[0].utente_id !== userId.toString()) {
+        return res.status(403).json({ error: 'Non puoi eliminare questa spesa' });
+      }
+    }
+
+    await deleteSpesa(req.params.numero_fattura, companyId);
     res.json({ message: 'Spesa eliminata' });
   } catch (err) {
     console.error('❌ Errore cancellazione spesa:', err);
@@ -779,8 +857,7 @@ app.post('/logout', async (req, res) => {
   }
 });
 
-// Aggiungi questi endpoint al tuo api/index.js
-import { requirePermission, requireSuperAdmin, requireAdminAzienda, getUserPermissions } from '../middleware/auth.js';
+
 
 /* === GET USER PERMISSIONS === */
 app.get('/user/permissions', async (req, res) => {

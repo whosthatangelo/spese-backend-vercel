@@ -57,6 +57,10 @@ export function requirePermission(resource, action, scope = null) {
         }
       }
 
+      // 🆕 Passa i permessi al middleware successivo
+      req.userRole = roleName;
+      req.userPermissions = permissions;
+
       console.log(`✅ Permesso autorizzato: ${roleName} può ${action} su ${resource}`);
       next();
 
