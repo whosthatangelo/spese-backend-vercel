@@ -1308,24 +1308,6 @@ app.get('/debug/permissions/:userId/:companyId', async (req, res) => {
   }
 });
 
-// Aggiungi al backend/api/index.js
-app.get('/fix-permissions', async (req, res) => {
-  try {
-    await db.query(`
-      UPDATE roles SET permissions = $1 WHERE name = 'super_admin'
-    `, [JSON.stringify({
-      "companies": {"create": true, "read": true, "update": true, "delete": true, "scope": "global"},
-      "users": {"create": true, "read": true, "update": true, "delete": true, "assign_roles": true, "scope": "global"},
-      "expenses": {"create": true, "read": true, "update": true, "delete": true, "scope": "global"},
-      "incomes": {"create": true, "read": true, "update": true, "delete": true, "scope": "global"},
-      "admin": {"full_access": true}
-    })]);
-
-    res.json({ success: true, message: 'Permessi aggiornati!' });
-  } catch (error) {
-    res.json({ error: error.message });
-  }
-});
 
 
 // Aggiungi endpoint nel backend
