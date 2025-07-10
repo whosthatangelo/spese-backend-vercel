@@ -863,13 +863,13 @@ app.post('/logout', async (req, res) => {
 /* === GET USER PERMISSIONS === */
 app.get('/user/permissions', async (req, res) => {
   try {
-    const { userId, companyId } = req;
+    const { userId } = req;
+    const companyId = req.header('x-company-id'); // ← Leggi direttamente l'header
 
     if (!userId) {
       return res.status(401).json({ error: 'Utente non autenticato' });
     }
 
-    // Se non ha company selezionata, restituisci permessi vuoti
     if (!companyId) {
       return res.json({ 
         role: 'none', 
