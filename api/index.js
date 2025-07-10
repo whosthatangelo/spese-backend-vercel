@@ -942,22 +942,25 @@ app.get('/admin/companies', requireSuperAdmin, async (req, res) => {
              COUNT(uc.utente_id) as user_count,
              u.name as admin_name, u.email as admin_email
       FROM companies c
-      LEFT JOIN user_companies uc ON uc.azienda_id = c.id
-      LEFT JOIN users u ON u.id = (
+      LEFT JOIN user_companies uc ON uc.azienda_id = c.id::text
+      LEFT JOIN users u ON u.id::text = (
         SELECT uc2.utente_id FROM user_companies uc2 
         JOIN roles r ON r.id = uc2.role_id 
-        WHERE uc2.azienda_id = c.id AND r.name = 'admin_azienda' 
+        WHERE uc2.azienda_id = c.id::text AND r.name = 'admin_azienda' 
         LIMIT 1
       )
       GROUP BY c.id, u.name, u.email
       ORDER BY c.nome
     `);
+
+    console.log(`🏢 Admin companies: trovate ${result.rows.length} aziende`);
     res.json(result.rows);
   } catch (error) {
     console.error('❌ Errore /admin/companies:', error);
     res.status(500).json({ error: 'Errore recupero companies' });
   }
 });
+
 
 // Crea nuova company (Super Admin)
 app.post('/admin/companies', requireSuperAdmin, async (req, res) => {
@@ -989,7 +992,7 @@ app.post('/admin/companies', requireSuperAdmin, async (req, res) => {
 
     await db.query(
       'INSERT INTO user_companies (utente_id, azienda_id, role_id) VALUES ($1, $2, $3)',
-      [adminUserId, newCompany.id, adminRoleId]
+      [adminUserId.toString(), newCompany.id.toString(), adminRoleId]
     );
 
     console.log(`✅ Company creata: ${nome} con admin ${admin_email}`);
@@ -1008,26 +1011,48 @@ app.post('/admin/companies', requireSuperAdmin, async (req, res) => {
 /* === GESTIONE UTENTI AZIENDA (Admin Azienda + Super Admin) === */
 
 // Lista utenti della propria azienda
+// Lista utenti della propria azienda O di tutte se Super Admin
 app.get('/admin/users', requireAdminAzienda, async (req, res) => {
   try {
     const { companyId, userRole } = req;
 
-    // Se Super Admin, può scegliere quale company vedere
+    // 🔧 FIX: Se Super Admin può scegliere quale company vedere
     let targetCompanyId = companyId;
     if (userRole === 'super_admin' && req.query.company_id) {
       targetCompanyId = req.query.company_id;
     }
 
-    const result = await db.query(`
-      SELECT u.id, u.email, u.name, u.profile_picture, u.created_at, u.last_login,
-             r.name as role_name, uc.role_id
-      FROM users u
-      JOIN user_companies uc ON uc.utente_id = u.id
-      JOIN roles r ON r.id = uc.role_id
-      WHERE uc.azienda_id = $1
-      ORDER BY r.id ASC, u.name ASC
-    `, [targetCompanyId]);
+    // 🔧 FIX: Se Super Admin senza company_id, mostra tutte
+    let query;
+    let params;
 
+    if (userRole === 'super_admin' && !req.query.company_id) {
+      // Super Admin vede tutti gli utenti di tutte le aziende
+      query = `
+        SELECT u.id, u.email, u.name, u.profile_picture, u.created_at, u.last_login,
+               r.name as role_name, uc.role_id, c.nome as company_name, c.id as company_id
+        FROM users u
+        JOIN user_companies uc ON uc.utente_id = u.id::text
+        JOIN roles r ON r.id = uc.role_id
+        JOIN companies c ON c.id = uc.azienda_id::integer
+        ORDER BY c.nome, r.id ASC, u.name ASC
+      `;
+      params = [];
+    } else {
+      // Admin azienda o Super Admin con company specifica
+      query = `
+        SELECT u.id, u.email, u.name, u.profile_picture, u.created_at, u.last_login,
+               r.name as role_name, uc.role_id
+        FROM users u
+        JOIN user_companies uc ON uc.utente_id = u.id::text
+        JOIN roles r ON r.id = uc.role_id
+        WHERE uc.azienda_id = $1
+        ORDER BY r.id ASC, u.name ASC
+      `;
+      params = [targetCompanyId];
+    }
+
+    const result = await db.query(query, params);
     res.json(result.rows);
   } catch (error) {
     console.error('❌ Errore /admin/users:', error);
