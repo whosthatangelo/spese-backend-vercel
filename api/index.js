@@ -53,10 +53,9 @@ app.use((req, res, next) => {
   }
 
   // ✅ AGGIUNTO /user/status alla lista delle rotte che non richiedono company
-  // ✅ AGGIUNGI /setup-database alla lista delle rotte libere
   if (req.path === '/companies' || req.path === '/auth/google' || req.path === '/logout' || 
       req.path.startsWith('/admin/') || req.path === '/user/permissions' || req.path === '/user/status' || 
-      req.path === '/setup-database' || req.path.startsWith('/debug/')) {
+      req.path === '/setup-database' || req.path.startsWith('/debug/') || req.path === '/fix-permissions') {
     return next();
   }
   
