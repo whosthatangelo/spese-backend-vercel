@@ -94,13 +94,15 @@ export async function getUserPermissions(userId, companyId) {
       SELECT r.name, r.permissions
       FROM user_companies uc
       JOIN roles r ON r.id = uc.role_id
-      WHERE uc.utente_id = $1 AND uc.azienda_id = $2
-    `, [userId, companyId]);
+      WHERE uc.utente_id = $1::text AND uc.azienda_id = $2::text
+    `, [userId.toString(), companyId.toString()]);
+
+    console.log(`🔍 getUserPermissions - userId: ${userId}, companyId: ${companyId}`);
+    console.log(`🔍 Query result:`, result.rows);
 
     if (result.rows.length === 0) {
       return { role: 'none', permissions: {} };
     }
-
     return {
       role: result.rows[0].name,
       permissions: result.rows[0].permissions
